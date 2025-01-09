@@ -1,0 +1,52 @@
+name: ResNetMLP
+layers:
+  # First block (no residual)
+  - type: linear
+    in_features: 7
+    out_features: 256
+    activation: gelu
+    residual: false
+  
+  - type: batch_norm
+    num_features: 256
+  
+  # Residual block 1
+  - type: linear
+    in_features: 256
+    out_features: 256  # Same size enables residual connection
+    activation: gelu
+    residual: true
+  
+  - type: batch_norm
+    num_features: 256
+  
+  # Residual block 2
+  - type: linear
+    in_features: 256
+    out_features: 256  # Same size enables residual connection
+    activation: gelu
+    residual: true
+  
+  - type: batch_norm
+    num_features: 256
+    
+  # Output layer (no residual)
+  - type: linear
+    in_features: 256
+    out_features: 5
+    residual: false
+
+config:
+  input_size: 7
+  output_size: 5
+  use_batch_norm: true
+  residual_connections:
+    enabled: true
+    projection_type: 'linear'  # Options: 'linear', '1x1', 'identity'
+  architecture:
+    width: 256
+    num_residual_blocks: 2
+    residual_dropout: 0.0  # No dropout in residual connections
+  training:
+    batch_norm_momentum: 0.1
+    dropout_rate: 0.2

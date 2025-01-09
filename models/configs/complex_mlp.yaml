@@ -1,0 +1,36 @@
+architecture: complex_mlp
+input_size: 7  # Adjust based on your data
+hidden_size: 256
+num_classes: 5  # Adjust based on your data
+n_layers: 4
+dropout_rate: 0.3
+activation: gelu
+
+layers:
+  - type: linear
+    in_features: 7
+    out_features: 256
+    activation: gelu
+    
+  - type: dropout
+    p: 0.3
+    
+  - type: linear
+    in_features: 256
+    out_features: 128
+    activation: gelu
+    
+  - type: dropout
+    p: 0.3
+    
+  - type: linear
+    in_features: 128
+    out_features: 64
+    activation: gelu
+    
+  - type: dropout
+    p: 0.3
+    
+  - type: linear
+    in_features: 64
+    out_features: 5

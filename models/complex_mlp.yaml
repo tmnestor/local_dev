@@ -1,0 +1,35 @@
+name: ComplexMLP
+layers:
+  # Input layer
+  - type: linear
+    in_features: 7
+    out_features: 256
+    activation: gelu
+  
+  # First hidden block
+  - type: batch_norm
+    num_features: 256
+  - type: dropout
+    p: 0.3
+    
+  # Second hidden block
+  - type: linear
+    in_features: 256
+    out_features: 128
+    activation: gelu
+  - type: batch_norm
+    num_features: 128
+  - type: dropout
+    p: 0.2
+    
+  # Output layer
+  - type: linear
+    in_features: 128
+    out_features: 5  # num_classes
+
+config:
+  input_size: 7
+  output_size: 5
+  use_batch_norm: true
+  dropout_rates: [0.3, 0.2]
+  hidden_sizes: [256, 128]

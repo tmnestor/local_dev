@@ -1,0 +1,31 @@
+architecture: resnet_mlp
+input_size: 7  # Adjust based on your data
+hidden_size: 128
+num_classes: 5  # Adjust based on your data
+n_layers: 3
+batch_norm: true
+activation: gelu
+
+layers:
+  - type: linear
+    in_features: 7
+    out_features: 128
+    activation: gelu
+    residual: false
+    
+  - type: batch_norm
+    num_features: 128
+    
+  - type: linear
+    in_features: 128
+    out_features: 128
+    activation: gelu
+    residual: true
+    
+  - type: batch_norm
+    num_features: 128
+    
+  - type: linear
+    in_features: 128
+    out_features: 5
+    residual: false

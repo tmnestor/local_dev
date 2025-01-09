@@ -1,0 +1,20 @@
+services:
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # - ./pytorch_cpu_trainer:/home/jovyan/work
+      - .:/home/jovyan/work
+    ports:
+      - 8888:8888
+    deploy:
+      resources:
+        limits:
+          memory: 64G
+        reservations:
+          memory: 2G
+    command: "start-notebook.py --NotebookApp.token="
+
+# docker compose up --build
+# docker compose down
