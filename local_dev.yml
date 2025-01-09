@@ -14,7 +14,7 @@ dependencies:
 
 # --------- pytorch --------- #
   # - torch
-  # # - torchvision
+  # - torchvision
   # - lightning
   # - torchmetrics
   # - torchdata
@@ -64,8 +64,6 @@ dependencies:
   - psutil
   - py-cpuinfo
   - tqdm
-
-
   # - pyod
   # - python-dotenv 
   # - python-dotenv-with-cli
@@ -74,39 +72,16 @@ dependencies:
   
   - pip:
     - -r requirements.txt
-  
-    # - torch==2.5+cpu
 
-    # - tab-transformer-pytorch
-    # - hydra-optuna-sweeper
-    # - hydra-colorlog
-    # - einops
-    # - pytorch_frame # https://github.com/pyg-team/pytorch-frame
-    # - tensorboard
-    # - pytorch_tabular[extra]
-    # - rootutils
-    # - d2l # dive into deeplearning
 
 variables:
   # PYTORCH_ENABLE_MPS_FALLBACK: 1
 prefix: local_dev
 
-# cd $CONDA_ENVS
+# Create Environment with conda if you prefer
+# cd /path/to/project 
 # conda deactivate
 # conda env remove --name local_dev -y
 # conda update -n base -c conda-forge conda
 # conda env create --file local_dev.yml
 # conda activate local_dev
-# say "Job Finished"
-
-
-# pip install hydra-core --upgrade
-# conda env update --name local_dev --file local_dev.yml --prune
-
-# conda env export --name local_dev --from-history --file environment.yml
-
-# conda activate local_dev
-# python -m ipykernel install --user --name local_dev --display-name "local_dev"
-
-
-# conda env remove --name local_dev -y && conda env create --file local_dev.yml
