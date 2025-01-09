@@ -1248,3 +1248,431 @@ Average trial duration: 1.65s
 
 Best Trial: #35
 Value: 79.3750
+[ResNet MLP] Trial 00 completed after 13 epochs with value: 66.8750
+*** New best trial! ***
+============================================================
+[ResNet MLP] Trial 01 completed after 18 epochs with value: 70.0000
+*** New best trial! ***
+============================================================
+[Complex MLP] Trial 02 completed after 15 epochs with value: 71.8750
+*** New best trial! ***
+============================================================
+[ResNet MLP] Trial 03 completed after 12 epochs with value: 69.3750
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 5
+Pruned: 1
+Early Stopped: 5
+Average trial duration: 2.00s
+[Complex MLP] Trial 05 completed after 10 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 10 completed after 8 epochs with value: 73.1250
+*** New best trial! ***
+============================================================
+[ResNet MLP] Trial 12 completed after 10 epochs with value: 71.8750
+============================================================
+[ResNet MLP] Trial 13 completed after 9 epochs with value: 75.0000
+*** New best trial! ***
+============================================================
+[ResNet MLP] Trial 14 completed after 9 epochs with value: 71.2500
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 10
+Pruned: 6
+Early Stopped: 10
+Average trial duration: 1.68s
+[ResNet MLP] Trial 15 completed after 8 epochs with value: 75.0000
+============================================================
+[ResNet MLP] Trial 16 completed after 13 epochs with value: 71.8750
+============================================================
+[ResNet MLP] Trial 19 completed after 8 epochs with value: 70.0000
+============================================================
+[ResNet MLP] Trial 20 completed after 11 epochs with value: 71.8750
+============================================================
+[ResNet MLP] Trial 21 completed after 13 epochs with value: 74.3750
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 15
+Pruned: 8
+Early Stopped: 15
+Average trial duration: 1.80s
+[ResNet MLP] Trial 22 completed after 8 epochs with value: 70.0000
+============================================================
+[ResNet MLP] Trial 23 completed after 15 epochs with value: 76.2500
+*** New best trial! ***
+============================================================
+[ResNet MLP] Trial 24 completed after 7 epochs with value: 70.0000
+============================================================
+[ResNet MLP] Trial 29 completed after 13 epochs with value: 71.8750
+============================================================
+[ResNet MLP] Trial 32 completed after 12 epochs with value: 71.8750
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 20
+Pruned: 15
+Early Stopped: 20
+Average trial duration: 1.82s
+[ResNet MLP] Trial 34 completed after 10 epochs with value: 71.8750
+============================================================
+[ResNet MLP] Trial 35 completed after 12 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 36 completed after 12 epochs with value: 73.7500
+============================================================
+[ResNet MLP] Trial 38 completed after 12 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 40 completed after 11 epochs with value: 71.2500
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 25
+Pruned: 17
+Early Stopped: 25
+Average trial duration: 1.83s
+[ResNet MLP] Trial 41 completed after 14 epochs with value: 73.7500
+============================================================
+[ResNet MLP] Trial 42 completed after 18 epochs with value: 73.1250
+============================================================
+[ResNet MLP] Trial 43 completed after 12 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 44 completed after 14 epochs with value: 71.2500
+============================================================
+[Complex MLP] Trial 45 completed after 8 epochs with value: 69.3750
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 30
+Pruned: 18
+Early Stopped: 30
+Average trial duration: 1.84s
+[ResNet MLP] Trial 47 completed after 15 epochs with value: 73.1250
+============================================================
+[ResNet MLP] Trial 48 completed after 8 epochs with value: 76.2500
+============================================================
+[ResNet MLP] Trial 49 completed after 11 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 51 completed after 8 epochs with value: 69.3750
+============================================================
+[ResNet MLP] Trial 52 completed after 13 epochs with value: 71.8750
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 35
+Pruned: 20
+Early Stopped: 35
+Average trial duration: 1.80s
+[ResNet MLP] Trial 54 completed after 9 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 55 completed after 11 epochs with value: 74.3750
+============================================================
+[ResNet MLP] Trial 59 completed after 7 epochs with value: 70.0000
+============================================================
+[ResNet MLP] Trial 60 completed after 15 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 61 completed after 13 epochs with value: 73.1250
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 40
+Pruned: 24
+Early Stopped: 40
+Average trial duration: 1.77s
+[ResNet MLP] Trial 63 completed after 9 epochs with value: 71.8750
+============================================================
+[ResNet MLP] Trial 64 completed after 8 epochs with value: 70.6250
+============================================================
+[ResNet MLP] Trial 65 completed after 7 epochs with value: 71.8750
+============================================================
+[ResNet MLP] Trial 67 completed after 9 epochs with value: 73.1250
+============================================================
+[ResNet MLP] Trial 68 completed after 21 epochs with value: 73.1250
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 45
+Pruned: 27
+Early Stopped: 45
+Average trial duration: 1.78s
+[ResNet MLP] Trial 71 completed after 10 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 72 completed after 11 epochs with value: 74.3750
+============================================================
+[ResNet MLP] Trial 73 completed after 12 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 74 completed after 10 epochs with value: 73.1250
+============================================================
+[ResNet MLP] Trial 75 completed after 12 epochs with value: 72.5000
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 50
+Pruned: 27
+Early Stopped: 50
+Average trial duration: 1.75s
+[ResNet MLP] Trial 76 completed after 8 epochs with value: 73.7500
+============================================================
+[ResNet MLP] Trial 78 completed after 11 epochs with value: 71.8750
+============================================================
+[ResNet MLP] Trial 79 completed after 13 epochs with value: 73.1250
+============================================================
+[ResNet MLP] Trial 80 completed after 8 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 81 completed after 11 epochs with value: 73.7500
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 55
+Pruned: 29
+Early Stopped: 55
+Average trial duration: 1.73s
+[ResNet MLP] Trial 83 completed after 13 epochs with value: 73.1250
+============================================================
+[ResNet MLP] Trial 85 completed after 10 epochs with value: 73.1250
+============================================================
+[ResNet MLP] Trial 86 completed after 11 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 90 completed after 16 epochs with value: 73.1250
+============================================================
+[ResNet MLP] Trial 91 completed after 12 epochs with value: 72.5000
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 60
+Pruned: 33
+Early Stopped: 60
+Average trial duration: 1.73s
+[ResNet MLP] Trial 92 completed after 8 epochs with value: 70.6250
+============================================================
+[ResNet MLP] Trial 93 completed after 10 epochs with value: 73.7500
+============================================================
+[ResNet MLP] Trial 94 completed after 11 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 96 completed after 10 epochs with value: 70.6250
+============================================================
+[ResNet MLP] Trial 98 completed after 9 epochs with value: 69.3750
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 65
+Pruned: 37
+Early Stopped: 65
+Average trial duration: 1.71s
+[ResNet MLP] Trial 101 completed after 14 epochs with value: 73.7500
+============================================================
+[ResNet MLP] Trial 102 completed after 10 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 105 completed after 13 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 106 completed after 16 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 107 completed after 12 epochs with value: 74.3750
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 70
+Pruned: 40
+Early Stopped: 70
+Average trial duration: 1.72s
+[ResNet MLP] Trial 109 completed after 12 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 111 completed after 17 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 114 completed after 10 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 115 completed after 8 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 116 completed after 13 epochs with value: 72.5000
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 75
+Pruned: 43
+Early Stopped: 75
+Average trial duration: 1.72s
+[ResNet MLP] Trial 117 completed after 10 epochs with value: 76.8750
+*** New best trial! ***
+============================================================
+[ResNet MLP] Trial 118 completed after 12 epochs with value: 71.8750
+============================================================
+[ResNet MLP] Trial 119 completed after 11 epochs with value: 70.0000
+============================================================
+[ResNet MLP] Trial 120 completed after 10 epochs with value: 70.6250
+============================================================
+[ResNet MLP] Trial 121 completed after 7 epochs with value: 73.7500
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 80
+Pruned: 43
+Early Stopped: 80
+Average trial duration: 1.72s
+[ResNet MLP] Trial 122 completed after 11 epochs with value: 75.0000
+============================================================
+[ResNet MLP] Trial 123 completed after 7 epochs with value: 70.0000
+============================================================
+[ResNet MLP] Trial 124 completed after 9 epochs with value: 70.0000
+============================================================
+[ResNet MLP] Trial 125 completed after 8 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 126 completed after 14 epochs with value: 73.1250
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 85
+Pruned: 46
+Early Stopped: 85
+Average trial duration: 1.74s
+[ResNet MLP] Trial 130 completed after 19 epochs with value: 71.8750
+============================================================
+[ResNet MLP] Trial 131 completed after 12 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 132 completed after 14 epochs with value: 73.1250
+============================================================
+[ResNet MLP] Trial 134 completed after 11 epochs with value: 74.3750
+============================================================
+[ResNet MLP] Trial 135 completed after 7 epochs with value: 70.6250
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 90
+Pruned: 47
+Early Stopped: 90
+Average trial duration: 1.73s
+[ResNet MLP] Trial 136 completed after 11 epochs with value: 73.1250
+============================================================
+[ResNet MLP] Trial 137 completed after 11 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 138 completed after 12 epochs with value: 75.6250
+============================================================
+[ResNet MLP] Trial 139 completed after 10 epochs with value: 74.3750
+============================================================
+[ResNet MLP] Trial 140 completed after 14 epochs with value: 72.5000
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 95
+Pruned: 47
+Early Stopped: 95
+Average trial duration: 1.70s
+[ResNet MLP] Trial 141 completed after 12 epochs with value: 74.3750
+============================================================
+[ResNet MLP] Trial 142 completed after 18 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 143 completed after 11 epochs with value: 74.3750
+============================================================
+[ResNet MLP] Trial 146 completed after 9 epochs with value: 73.1250
+============================================================
+[ResNet MLP] Trial 147 completed after 13 epochs with value: 73.1250
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 100
+Pruned: 50
+Early Stopped: 100
+Average trial duration: 1.70s
+[ResNet MLP] Trial 149 completed after 14 epochs with value: 70.6250
+============================================================
+[ResNet MLP] Trial 151 completed after 13 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 152 completed after 7 epochs with value: 69.3750
+============================================================
+[ResNet MLP] Trial 155 completed after 11 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 156 completed after 12 epochs with value: 71.8750
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 105
+Pruned: 54
+Early Stopped: 105
+Average trial duration: 1.66s
+[ResNet MLP] Trial 158 completed after 7 epochs with value: 70.6250
+============================================================
+[ResNet MLP] Trial 159 completed after 7 epochs with value: 71.8750
+============================================================
+[ResNet MLP] Trial 162 completed after 10 epochs with value: 70.6250
+============================================================
+[ResNet MLP] Trial 164 completed after 10 epochs with value: 73.1250
+============================================================
+[ResNet MLP] Trial 166 completed after 14 epochs with value: 72.5000
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 110
+Pruned: 58
+Early Stopped: 110
+Average trial duration: 1.64s
+[ResNet MLP] Trial 167 completed after 10 epochs with value: 73.7500
+============================================================
+[Complex MLP] Trial 168 completed after 11 epochs with value: 71.2500
+============================================================
+[ResNet MLP] Trial 169 completed after 11 epochs with value: 69.3750
+============================================================
+[ResNet MLP] Trial 170 completed after 8 epochs with value: 70.0000
+============================================================
+[ResNet MLP] Trial 171 completed after 9 epochs with value: 70.0000
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 115
+Pruned: 59
+Early Stopped: 115
+Average trial duration: 1.64s
+[ResNet MLP] Trial 173 completed after 15 epochs with value: 71.8750
+============================================================
+[ResNet MLP] Trial 174 completed after 14 epochs with value: 73.7500
+============================================================
+[ResNet MLP] Trial 176 completed after 8 epochs with value: 70.0000
+============================================================
+[ResNet MLP] Trial 177 completed after 9 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 178 completed after 18 epochs with value: 75.0000
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 120
+Pruned: 60
+Early Stopped: 120
+Average trial duration: 1.63s
+[ResNet MLP] Trial 179 completed after 12 epochs with value: 75.6250
+============================================================
+[ResNet MLP] Trial 181 completed after 8 epochs with value: 70.6250
+============================================================
+[ResNet MLP] Trial 182 completed after 12 epochs with value: 71.8750
+============================================================
+[ResNet MLP] Trial 183 completed after 7 epochs with value: 69.3750
+============================================================
+[ResNet MLP] Trial 184 completed after 17 epochs with value: 73.7500
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 125
+Pruned: 63
+Early Stopped: 125
+Average trial duration: 1.62s
+[ResNet MLP] Trial 187 completed after 11 epochs with value: 70.6250
+============================================================
+[ResNet MLP] Trial 191 completed after 8 epochs with value: 72.5000
+============================================================
+[ResNet MLP] Trial 193 completed after 14 epochs with value: 73.1250
+============================================================
+[ResNet MLP] Trial 194 completed after 11 epochs with value: 70.6250
+============================================================
+[ResNet MLP] Trial 196 completed after 7 epochs with value: 71.8750
+============================================================
+
+Tuning Efficiency Stats:
+Completed: 130
+Pruned: 68
+Early Stopped: 130
+Average trial duration: 1.61s
+[ResNet MLP] Trial 197 completed after 11 epochs with value: 73.7500
+============================================================
+[ResNet MLP] Trial 199 completed after 10 epochs with value: 71.8750
+============================================================
+
+Best Trial: #117
+Value: 76.8750

@@ -1,5 +1,5 @@
 best_model:
-  activation: gelu
+  activation: elu
   architecture:
     activation: gelu
     architecture: resnet_mlp
@@ -28,23 +28,21 @@ best_model:
     n_layers: 3
     num_classes: 5
   best_metric_name: accuracy
-  best_metric_value: 79.375
-  dropout_rate: 0.19646193063502365
+  best_metric_value: 76.875
+  dropout_rate: 0.0
   hidden_layers:
-  - 576
-  - 576
-  - 576
-  - 576
-  - 576
-  - 576
-  hidden_size: 576
+  - 384
+  - 384
+  - 384
+  - 384
+  hidden_size: 384
   hyperparameters: null
-  learning_rate: 0.0003308398190328141
+  learning_rate: 0.005005547881337766
   metric_name: null
   metric_value: null
-  n_layers: 6
-  use_batch_norm: false
-  weight_decay: 2.1406857018410065e-06
+  n_layers: 4
+  use_batch_norm: true
+  weight_decay: 0.000249950756984693
 data:
   target_column: target
   train_path: data/train.csv
