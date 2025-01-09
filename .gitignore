@@ -8,6 +8,7 @@ __pycache__/
 *.png
 *.json
 *.log
+*.ipynb
 
 # Jupyter Notebook checkpoints anywhere in the codebase
 **/.ipynb_checkpoints
