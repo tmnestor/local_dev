@@ -1,3 +1,48 @@
+# Common defaults
+.defaults: &defaults
+  enabled: true
+  track: true
+
+# Model dimensions
+.dimensions: &model_dims
+  input_size: 7
+  num_classes: 5
+
+# Common intervals
+.intervals: &intervals
+  plot_interval: 5
+  save_interval: 10
+
+# Common paths
+.paths: &data_paths
+  train_path: data/train.csv
+  val_path: data/val.csv
+  test_path: data/test.csv
+
+# Base monitoring settings
+.monitoring_base: &monitoring_base
+  enabled: true
+  log_dir: monitoring
+  log_file: performance.log
+
+# Optimizer settings
+.optimizer: &optimizer_settings
+  name: Adam
+  params: &adam_params
+    betas: [0.9, 0.999]
+    eps: 1.0e-08
+    lr: 0.001
+    weight_decay: 0.0
+
+# Training base settings
+.training: &training_base
+  batch_size: 32
+  epochs: 100
+  metric: f1
+  device: cpu
+  seed: 42
+
+# Main configuration
 best_model:
   activation: leaky_relu
   architecture:
@@ -42,54 +87,59 @@ best_model:
   n_layers: 3
   use_batch_norm: true
   weight_decay: 0.0005323663316764337
+
 data:
+  <<: *data_paths
   target_column: target
-  test_path: data/test.csv
-  train_path: data/train.csv
-  val_path: data/val.csv
+
 dataloader:
   drop_last: true
   num_workers: auto
   persistent_workers: true
   pin_memory: false
   prefetch_factor: 2
+
 device: cpu
+
 early_stopping:
   min_delta: 0.001
   patience: 5
+
 logging:
   directory: logs
   filename: training.log
   format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
   level: INFO
+
 model:
+  <<: *model_dims
   architecture_yaml: models/configs/resnet_mlp.yaml
-  input_size: 7
-  num_classes: 5
   save_path: models/best_model.pt
   type: resnet_mlp
+
 monitoring:
+  <<: *monitoring_base
   checkpoints:
     filename: model_checkpoint.pt
     save_best: true
-    save_interval: 10
-  enabled: true
-  log_dir: monitoring
-  log_file: performance.log
+    <<: *intervals
   memory:
+    <<: *defaults
     include_gpu: true
-    track: true
   metrics:
     output_file: metrics.yaml
-    plot_interval: 5
-    save_interval: 10
+    <<: *intervals
   performance:
+    <<: *defaults
     track_throughput: true
     track_time: true
+
 optimization:
   memory:
     gradient_accumulation_steps: 16
+
 seed: 42
+
 techniques:
   scheduler:
     params:
@@ -99,15 +149,23 @@ techniques:
       pct_start: 0.3
     type: OneCycleLR
   swa:
-    enabled: true
+    <<: *defaults
     lr: 0.001
     start_epoch: 75
   warmup:
-    enabled: true
+    <<: *defaults
     initial_lr_factor: 0.01
     max_steps: 1000
+
 training:
-  batch_size: 32
+  <<: *training_base
+  optimizer:
+    <<: *optimizer_settings
+  loss:
+    label_smoothing:
+      enabled: false
+      factor: 0.1
+    name: CrossEntropyLoss
   cpu_optimization:
     enable_mkldnn: true
     num_threads: auto
@@ -115,24 +173,7 @@ training:
   cross_validation:
     max_epochs: 20
     n_splits: 7
-  device: cpu
-  epochs: 100
-  loss:
-    label_smoothing:
-      enabled: false
-      factor: 0.1
-    name: CrossEntropyLoss
-  metric: f1
-  optimizer:
-    name: Adam
-    params:
-      betas:
-      - 0.9
-      - 0.999
-      eps: 1.0e-08
-      lr: 0.001
-      weight_decay: 0.0
-  seed: 42
+
 tuning:
   n_trials: 20
   pruning:
