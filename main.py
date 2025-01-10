@@ -1,7 +1,8 @@
 import os
 import sys
 import argparse
-import logging  # Add this import
+import logging
+import datetime
 from pathlib import Path
 from typing import Dict, Any
 
@@ -10,6 +11,10 @@ import pandas as pd
 import yaml
 import torch
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt  # Add this import
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+import numpy as np
 
 # Local imports
 from models.model_loader import load_model_from_yaml, LabelSmoothingLoss
@@ -446,21 +451,104 @@ def inference_mode(config_path: str):
     monitoring_dir = Path(config['monitoring']['log_dir'])
     monitoring_dir.mkdir(parents=True, exist_ok=True)
     
-    logger.info("Evaluating model on test set...")  # Updated message
-    test_loss, test_accuracy, test_f1 = trainer.evaluate(test_loader)  # Changed var names
+    logger.info("Evaluating model on test set...")
     
-    # Generate and print comprehensive report
+    # Evaluate with full test set and store predictions
+    model.eval()
+    all_outputs = []
+    all_targets = []
+    test_loss = 0
+    total_samples = 0
+    
+    with torch.no_grad():
+        for batch_X, batch_y in test_loader:
+            batch_X = batch_X.to(config['device'])
+            batch_y = batch_y.to(config['device'])
+            outputs = model(batch_X)
+            loss = criterion(outputs, batch_y)
+            
+            test_loss += loss.item() * batch_y.size(0)
+            total_samples += batch_y.size(0)
+            
+            all_outputs.append(outputs)
+            all_targets.append(batch_y)
+    
+    # Concatenate all batches
+    outputs = torch.cat(all_outputs)
+    targets = torch.cat(all_targets)
+    
+    # Get predictions before softmax for metrics
+    _, predictions = torch.max(outputs, 1)
+    predictions = predictions.cpu()
+    targets = targets.cpu()
+    
+    # Update metrics manager with raw predictions and targets
+    metrics = trainer.metrics_manager.update(outputs, targets, phase='test')
+    
+    # Calculate basic metrics
+    test_loss = test_loss / total_samples
+    test_accuracy = metrics['accuracy'] * 100
+    test_f1 = metrics['f1_macro']
+    
+    # Now generate plots and report
     if trainer.metrics_manager:
+        logger.info("\nGenerating comprehensive evaluation report on test data...")
         report = trainer.metrics_manager.generate_comprehensive_report()
-        logger.info("\nComprehensive Evaluation Report:")
-        for line in report.split('\n'):
-            logger.info(line)
         
-        # Save report to file
-        report_path = monitoring_dir / 'evaluation_report.txt'
-        with open(report_path, 'w') as f:
-            f.write(report)
-        logger.info(f"\nDetailed evaluation report saved to: {report_path}")
+        # Create timestamp directory
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M')
+        plots_dir = monitoring_dir / timestamp / 'plots'
+        plots_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 1. Confusion Matrix Plot
+        plt.figure(figsize=(10, 8))
+        cm = confusion_matrix(targets.numpy(), predictions.numpy())  # Calculate directly if needed
+        sns.heatmap(
+            cm.astype('float') / cm.sum(axis=1)[:, np.newaxis],
+            annot=True, fmt='.2f', cmap='Blues',
+            xticklabels=range(config['model']['num_classes']),
+            yticklabels=range(config['model']['num_classes'])
+        )
+        plt.title('Normalized Confusion Matrix')
+        plt.ylabel('True Label')
+        plt.xlabel('Predicted Label')
+        plt.tight_layout()
+        plt.savefig(plots_dir / 'confusion_matrix.png', bbox_inches='tight', dpi=300)
+        plt.close()
+        
+        # 2. Per-Class Performance Plot
+        plt.figure(figsize=(10, 8))
+        class_metrics = {
+            f'Class {i}': {
+                'Precision': metrics[f'precision_class_{i}'],
+                'Recall': metrics[f'recall_class_{i}']
+            }
+            for i in range(config['model']['num_classes'])
+        }
+        
+        # Create bar plot
+        labels = list(class_metrics.keys())
+        precision_values = [m['Precision'] for m in class_metrics.values()]
+        recall_values = [m['Recall'] for m in class_metrics.values()]
+        
+        x = np.arange(len(labels))
+        width = 0.35
+        
+        plt.bar(x - width/2, precision_values, width, label='Precision', color='blue', alpha=0.7)
+        plt.bar(x + width/2, recall_values, width, label='Recall', color='orange', alpha=0.7)
+        
+        plt.xlabel('Classes')
+        plt.ylabel('Score')
+        plt.title('Per-Class Performance')
+        plt.xticks(x, labels)
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(plots_dir / 'per_class_metrics.png', bbox_inches='tight', dpi=300)
+        plt.close()
+        
+        # Rest of the report generation code...
+        # ...existing code...
     
     # Log basic results
     logger.info(f"\nSummary Results:")

@@ -50,6 +50,8 @@ class MetricsManager:
             'input_hashes': set(),
             'target_distribution': {}
         }
+        
+        self.confusion_matrix = None  # Add this line to store confusion matrix
     
     def validate_inputs(self, inputs: torch.Tensor, targets: torch.Tensor) -> Dict[str, Any]:
         """Validate inputs for data leakage"""
@@ -95,6 +97,9 @@ class MetricsManager:
 
         predictions = torch.argmax(outputs, dim=1).cpu().numpy()
         targets = targets.cpu().numpy()
+        
+        # Calculate and store confusion matrix
+        self.confusion_matrix = confusion_matrix(targets, predictions)  # Add this line
         
         # Calculate accuracy
         accuracy = (predictions == targets).mean()
