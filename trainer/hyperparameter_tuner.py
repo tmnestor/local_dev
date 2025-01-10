@@ -15,12 +15,12 @@ from pathlib import Path
 from utils.metrics_manager import MetricsManager
 
 from .base_trainer import PyTorchTrainer
-from utils.logging import setup_logger  # Fix: Change from utils.config to utils.logging
 from models.model_loader import load_model_from_yaml
+from utils.logger import Logger  # Only import Logger
 
 def restore_best_model(config):
     """Restore best model with architecture description."""
-    logger = setup_logger('ModelRestoration')  # Use consistent setup_logger
+    logger = Logger.get_logger('ModelRestoration')  # Use Logger directly
     
     try:
         if os.path.exists(config['model']['save_path']):
@@ -71,7 +71,7 @@ def restore_best_model(config):
 
 def _create_default_model(config):
     """Create a new model with default configuration."""
-    logger = logging.getLogger('ModelRestoration')
+    logger = Logger.get_logger('ModelRestoration')  # Use Logger directly
     
     with open(config['model']['architecture_yaml'], 'r') as f:
         architecture = yaml.safe_load(f)
@@ -157,40 +157,24 @@ class HyperparameterTuner:
         self.best_params = None
         self.initial_model = initial_model
         
-        # Setup logger with simplified format
-        log_config = config.get('logging', {})
-        self.logger = logging.getLogger('HyperTuner')
-        self.logger.setLevel(logging.INFO)
-        
-        # Create handler with simplified format
-        handler = logging.StreamHandler()
-        handler.setFormatter(
-            logging.Formatter('%(asctime)s %(message)s', 
-                            datefmt='%Y-%m-%d %H:%M:%S')
+        # Setup single logger instance with correct path
+        self.logger = Logger.get_timestamp_logger(
+            'HyperTuner',
+            log_dir='tuning'  # Simply pass 'tuning' as the subdirectory
         )
-        self.logger.addHandler(handler)
         
-        # Load both architectures from models directory
+        # Load architectures
         models_dir = os.path.dirname(config['model']['architecture_yaml'])
-        
-        # Load ResNet architecture
         with open(config['model']['architecture_yaml'], 'r') as f:
             self.resnet_architecture = yaml.safe_load(f)
-            
-        # Load Complex MLP architecture
+        
         complex_mlp_path = os.path.join(models_dir, 'complex_mlp.yaml')
         with open(complex_mlp_path, 'r') as f:
             self.complex_architecture = yaml.safe_load(f)
         
-        # Setup logger with config settings if available
-        log_config = config.get('logging', {})
-        self.logger = setup_logger(
-            name='HyperTuner',
-            log_file=str(Path(log_config.get('directory', 'logs')) / f"{log_config.get('filename', 'hypertuner.log')}"),
-            log_format=log_config.get('format', '%(message)s')
-        )
+        # Remove duplicate logger setup
         
-        # Add new attributes for optimization
+        # Initialize optimization statistics
         self.pruning_stats = {
             'pruned_trials': 0,
             'early_stopped_trials': 0,

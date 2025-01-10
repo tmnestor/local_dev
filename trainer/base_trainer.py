@@ -32,7 +32,7 @@ import cpuinfo
 import multiprocessing
 
 # Local imports
-from utils.logging import setup_logger  # Fix: Change from utils.config to utils.logging
+from utils.logger import Logger  # Replace old logging import
 from utils.data import CustomDataset
 from models.model_loader import (
     ModuleFactory, 
@@ -51,28 +51,10 @@ def load_config(config_path):
         return yaml.safe_load(f)
         
 # Set up logging
-def setup_logger(name='MLPTrainer'):
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
-    
-    # File handler
-    fh = logging.FileHandler(f'{name}.log')
-    fh.setLevel(logging.INFO)
-    
-    # Console handler
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.INFO)
-    
-    # Formatter
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
-    
-    # Add handlers to logger
-    logger.addHandler(fh)
-    logger.addHandler(ch)
-    
-    return logger
+# This function should be removed since it's deprecated:
+# def setup_logger(name='MLPTrainer'):
+#     """Deprecated: Use Logger.get_logger instead"""
+#     return Logger.get_logger(name)
 
 class PyTorchTrainer:
     """A generic PyTorch trainer class.
@@ -96,12 +78,14 @@ class PyTorchTrainer:
         self.best_model_state = None
         self.best_metric = float('-inf')
         self.best_epoch = 0
-        self.logger = logging.getLogger('PyTorchTrainer')
-        self.logger.setLevel(logging.INFO)
-        if not self.logger.handlers:
-            handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter('%(message)s'))
-            self.logger.addHandler(handler)
+        
+        # Initialize single logger with proper path
+        log_subdir = 'tuning' if tuning_mode else 'training'
+        self.logger = Logger.get_logger(
+            'PyTorchTrainer',
+            filename=str(Path(log_subdir) / 'trainer.log'),
+            console_output=verbose  # Only output to console if verbose is True
+        )
         
         # Validate config for required fields
         if config is not None:
@@ -448,14 +432,41 @@ class PyTorchTrainer:
                 print(f"Restored best model from epoch {self.best_model_state['epoch']+1} "
                       f"with {metric}={self.best_model_state['metric_value']:.2f}%")
             
-            self.plot_learning_curves(train_losses, val_losses, train_metrics, val_metrics,
-                                    metric_name='F1-Score' if metric == 'f1' else 'Accuracy')
+            # Generate and store learning curves figure
+            learning_curves_fig = self.plot_learning_curves(
+                train_losses, val_losses, train_metrics, val_metrics,
+                metric_name='F1-Score' if metric == 'f1' else 'Accuracy'
+            )
             
-            # Get summary only if monitoring exists and avoid duplicate logging
+            # Get summary and save all plots together
             if self.performance_monitor:
-                summary = self.performance_monitor.get_summary()
+                # Store learning curves in the performance monitor
+                self.performance_monitor._training_plots['learning_curves.png'] = learning_curves_fig
+                
+                if self.metrics_manager:
+                    self.performance_monitor.save_all_plots(self.metrics_manager)
+                else:
+                    self.performance_monitor.save_all_plots()
+                    
+                # Get metrics from performance monitor but handle logging here
+                metrics = self.performance_monitor.get_summary()
+                
+                # Print formatted summary
+                self.logger.info("\n" + "=" * 60)
+                self.logger.info("\nTraining Summary:")
+                self.logger.info("=" * 60 + "\n")
+                
+                # Print metrics
+                max_key_len = max(len(name) for name, _ in metrics)
+                for name, value in metrics:
+                    self.logger.info(f"{name:<{max_key_len}}: {value}")
+                
+                self.logger.info("\n" + "=" * 60)
+                self.logger.info("Saving trained model...")
+                self.logger.info(f"Model saved to {self.config['model']['save_path']}")
+                self.logger.info(f"Final performance: {self.best_metric:.4f}")
             else:
-                # Only log if we don't have a performance monitor
+                # Minimal logging when no performance monitor
                 self.logger.info("\n" + "=" * 60)
                 self.logger.info("Saving trained model...")
                 self.logger.info(f"Model saved to {self.config['model']['save_path']}")
@@ -465,6 +476,7 @@ class PyTorchTrainer:
             torch.save(self.best_model_state, self.config['model']['save_path'])
             
             return train_losses, val_losses, train_metrics, val_metrics, self.best_metric
+            
         except Exception as e:
             self.logger.error(f"Training failed: {str(e)}")
             raise
@@ -472,21 +484,13 @@ class PyTorchTrainer:
     @staticmethod
     def plot_learning_curves(train_losses, val_losses, train_metrics, val_metrics, metric_name='Accuracy'):
         """Plots the learning curves for loss and chosen metric (accuracy or F1)."""
-        # Create figures directory if it doesn't exist
-        os.makedirs('figures', exist_ok=True)
-        
-        # Create unique filename using timestamp
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f'figures/learning_curves_{timestamp}.png'
-        
-        plt.figure(figsize=(10, 6))
+        # This is a placeholder that will be updated with proper plots directory
+        fig = plt.figure(figsize=(10, 6))
         sns.set_style("whitegrid")
         
         # Normalize values for better visualization
         max_loss = max(max(train_losses), max(val_losses))
         max_metric = max(max(train_metrics), max(val_metrics))
-        
-        epochs = range(1, len(train_losses) + 1)
         
         sns.lineplot(data={
             f"Training {metric_name}": [x/max_metric for x in train_metrics],
@@ -499,10 +503,8 @@ class PyTorchTrainer:
         plt.ylabel("Normalized Value")
         plt.title(f"Training and Validation Loss and {metric_name} Curves")
         plt.legend()
-        plt.savefig(filename)
-        plt.close()
         
-        return filename  # Return filename for reference
+        return fig  # Return figure instead of saving it
 
     def cross_validate(self, dataset, n_splits=5, epochs=None):
         """Perform k-fold cross validation"""

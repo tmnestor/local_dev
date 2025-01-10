@@ -7,7 +7,9 @@ import numpy as np
 import torch
 import psutil
 import matplotlib.pyplot as plt
+import seaborn as sns  # Add this import
 from datetime import datetime
+from utils.logger import Logger  # Add this import
 
 class PerformanceMonitor:
     """Monitors training performance and resource usage"""
@@ -36,18 +38,20 @@ class PerformanceMonitor:
         self.timestamp = datetime.now().strftime('%Y%m%d_%H%M')  # Remove seconds
         self.monitor_dir = Path(monitoring_config['log_dir']) / self.timestamp
         self.monitor_dir.mkdir(parents=True, exist_ok=True)
+        self.plots_dir = self.monitor_dir / 'plots'
+        self.plots_dir.mkdir(exist_ok=True)
         
+        # Initialize storage for plots
+        self._training_plots = {}
+
         # Make timestamp accessible to other components
         config['monitoring']['current_timestamp'] = self.timestamp
         
-        # Setup logging
-        self.logger = logging.getLogger('Performance')
-        # Remove any existing handlers
-        self.logger.handlers = []
-        handler = logging.FileHandler(self.monitor_dir / 'performance.log')
-        handler.setFormatter(logging.Formatter('%(message)s'))  # Simplified format
-        self.logger.addHandler(handler)
-        self.logger.setLevel(logging.INFO)
+        # Setup logging with new Logger class
+        self.logger = Logger.get_timestamp_logger(
+            'Performance',
+            log_dir=self.monitor_dir
+        )
 
     def start_epoch(self) -> None:
         """Record start of epoch"""
@@ -119,61 +123,69 @@ class PerformanceMonitor:
             ('f1', ['train_f1', 'val_f1'], 'F1 Score'),
         ]
         
+        plt.style.use('default')
+        sns.set_theme(style="whitegrid")
+        
+        # Generate all plots and store them
+        training_plots = {}
+        
         for name, metrics, ylabel in plots:
-            plt.figure(figsize=(10, 6))
+            fig = plt.figure(figsize=(10, 6))
             for metric in metrics:
-                plt.plot(self.metrics_history[metric], label=metric.replace('_', ' ').title())
+                if metric in self.metrics_history and len(self.metrics_history[metric]) > 0:
+                    plt.plot(self.metrics_history[metric], 
+                            label=metric.replace('_', ' ').title(),
+                            marker='o',
+                            markersize=4,
+                            linestyle='-',
+                            alpha=0.8)
+            
             plt.xlabel('Epoch')
             plt.ylabel(ylabel)
             plt.title(f'Training {ylabel} Over Time')
             plt.legend()
-            plt.grid(True)
-            plt.savefig(self.monitor_dir / f'{name}_plot.png')
-            plt.close()
+            plt.grid(True, alpha=0.3)
+            training_plots[f'{name}_plot.png'] = fig
+            plt.close()  # Close figure but keep it in memory
+            
+        # Store the plots to be saved later
+        self._training_plots = training_plots
+        
+    def save_all_plots(self, metrics_manager=None) -> None:
+        """Save all plots from both training and CV in a single directory"""
+        # Save training plots
+        if self._training_plots:
+            for name, fig in self._training_plots.items():
+                fig.savefig(self.plots_dir / name, dpi=300, bbox_inches='tight')
+                plt.close(fig)
+            self._training_plots = {}
+            
+        # Save CV plots if metrics manager is provided and has plots
+        if metrics_manager:
+            metrics_manager.save_plots(self.plots_dir)
+        
+        self.logger.info(f"All plots saved to: {self.plots_dir}")
 
     def get_summary(self) -> Dict[str, float]:
-        """Get training summary statistics with formatted output."""
+        """Get training summary statistics."""
         total_time = time.time() - self.start_time
         
-        # Print header with separator
-        self.logger.info("\n" + "=" * 60)
-        self.logger.info("\nTraining Summary:")
-        self.logger.info("=" * 60 + "\n")
-        
-        # Format and print metrics with consistent alignment
+        # Format metrics without logging
         metrics = [
             ("Runtime", f"{total_time:.2f}s"),
             ("Avg Epoch Time", f"{np.mean(self.metrics_history['epoch_time']):.2f}s"),
             ("Peak Memory", f"{max(self.metrics_history['memory_usage']):.1f}MB"),
         ]
         
-        # Add best metrics if available
         if self.metrics_history['val_accuracy']:
             metrics.append(("Best Accuracy", f"{max(self.metrics_history['val_accuracy']):.2f}%"))
         if self.metrics_history['val_f1']:
             f1_value = max(self.metrics_history['val_f1']) * 100
             metrics.append(("Best F1 Score", f"{f1_value:.2f}%"))
         
-        # Add final loss values if available
         if self.metrics_history['train_loss']:
             metrics.append(("Final Train Loss", f"{self.metrics_history['train_loss'][-1]:.4f}"))
         if self.metrics_history['val_loss']:
             metrics.append(("Final Val Loss", f"{self.metrics_history['val_loss'][-1]:.4f}"))
         
-        # Find maximum key length for alignment
-        max_key_len = max(len(name) for name, _ in metrics)
-        
-        # Print each metric aligned
-        for name, value in metrics:
-            self.logger.info(f"{name:<{max_key_len}}: {value}")
-        
-        # Print closing separator
-        self.logger.info("\n" + "=" * 60)
-        
-        # Update the final section to include model saving info
-        self.logger.info("\n" + "=" * 60)
-        self.logger.info("Saving trained model...")
-        self.logger.info(f"Model saved to {self.config['model']['save_path']}")
-        self.logger.info(f"Final performance: {metrics[-1][1]}")  # Use the last metric value
-        
-        return {name.lower().replace(' ', '_'): value for name, value in metrics}
+        return metrics  # Return just the metrics list

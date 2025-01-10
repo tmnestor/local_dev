@@ -15,8 +15,9 @@ from sklearn.metrics import (
 )
 from scipy import stats
 import matplotlib.pyplot as plt
-import seaborn as sns
+import seaborn as sns  # Add this import
 import logging
+from utils.logger import Logger  # Add this import
 
 class MetricsManager:
     """Manages comprehensive metrics collection and validation"""
@@ -34,13 +35,11 @@ class MetricsManager:
         self.val_metrics = []
         self.current_epoch = 0
         
-        # Simplified logging setup
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO)
-        if not self.logger.handlers:
-            handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter('%(message)s'))
-            self.logger.addHandler(handler)
+        # Simplified logging setup with new Logger class
+        self.logger = Logger.get_logger(
+            'MetricsManager',
+            filename='metrics.log' if not tuning_mode else 'tuning_metrics.log'
+        )
         
         self.tuning_mode = tuning_mode  # Add tuning mode flag
         self.accuracy_threshold = 0.99  # Adjust threshold to be more reasonable
@@ -360,110 +359,100 @@ class MetricsManager:
 
     def plot_cv_results(self, cv_results: List[Dict[str, float]], output_dir: Path) -> None:
         """Create visualizations for cross validation results"""
-        # Use the same timestamp as PerformanceMonitor
-        if 'monitoring' in self.config and 'current_timestamp' in self.config['monitoring']:
-            timestamp = self.config['monitoring']['current_timestamp']
-        else:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M')
-        
-        output_dir = output_dir / timestamp
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Generate the plots but don't save them yet
+        cv_plots = {}
         
         try:
-            # Set plot style properly
-            plt.style.use('default')  # Reset to default style
-            sns.set_theme(style="whitegrid")  # Use seaborn's whitegrid theme
-            
-            # Custom color palette
+            plt.style.use('default')
+            sns.set_theme(style="whitegrid")
             colors = sns.color_palette("husl", n_colors=2)
             
-            # 1. Plot per-class precision
-            plt.figure(figsize=(12, 6))
-            precision_data = []
-            for i in range(self.num_classes):
-                key = f'precision_class_{i}'
-                if key in cv_results[0]:
-                    values = [fold[key] for fold in cv_results]
-                    for value in values:
-                        precision_data.append({
-                            'Class': f'Class {i}',
-                            'Value': value
-                        })
+            # Generate all CV plots and store them in memory
+            for plot_name, plot_func in [
+                ('cv_precision.png', self._plot_class_precision),
+                ('cv_recall.png', self._plot_class_recall),
+                ('cv_overall.png', self._plot_overall_metrics)
+            ]:
+                # Create figure
+                fig = plt.figure(figsize=(12, 6))
+                plot_func(cv_results, colors)
+                cv_plots[plot_name] = fig
+                plt.close()  # Close figure but keep it in memory
             
-            if precision_data:
-                df_precision = pd.DataFrame(precision_data)
-                sns.boxplot(data=df_precision, x='Class', y='Value', color=colors[0])
-                plt.title('Per-Class Precision Across Folds', pad=20)
-                plt.ylabel('Precision')
-                plt.ylim(0, 1.1)
-                plt.grid(True, alpha=0.3)
-                plt.tight_layout()
-                plt.savefig(output_dir / 'cv_precision.png', dpi=300, bbox_inches='tight')
-                plt.close()
+            # Store the plots to be saved later
+            self._cv_plots = cv_plots
             
-            # 2. Plot per-class recall
-            plt.figure(figsize=(12, 6))
-            recall_data = []
-            for i in range(self.num_classes):
-                key = f'recall_class_{i}'
-                if key in cv_results[0]:
-                    values = [fold[key] for fold in cv_results]
-                    for value in values:
-                        recall_data.append({
-                            'Class': f'Class {i}',
-                            'Value': value
-                        })
-            
-            if recall_data:
-                df_recall = pd.DataFrame(recall_data)
-                sns.boxplot(data=df_recall, x='Class', y='Value', color=colors[1])
-                plt.title('Per-Class Recall Across Folds', pad=20)
-                plt.ylabel('Recall')
-                plt.ylim(0, 1.1)
-                plt.grid(True, alpha=0.3)
-                plt.tight_layout()
-                plt.savefig(output_dir / 'cv_recall.png', dpi=300, bbox_inches='tight')
-                plt.close()
-            
-            # 3. Plot overall metrics
-            plt.figure(figsize=(12, 6))
-            overall_metrics = ['accuracy', 'f1_macro', 'precision_macro', 'recall_macro', 'kappa']
-            overall_data = []
-            
-            for metric in overall_metrics:
-                if metric in cv_results[0]:
-                    values = [fold[metric] for fold in cv_results]
-                    for value in values:
-                        overall_data.append({
-                            'Metric': metric.replace('_', ' ').title(),
-                            'Value': value
-                        })
-            
-            if overall_data:
-                df_overall = pd.DataFrame(overall_data)
-                # Update boxplot to use proper hue parameter
-                sns.boxplot(
-                    data=df_overall,
-                    x='Metric',
-                    y='Value',
-                    hue='Metric',  # Add hue parameter
-                    legend=False    # Hide redundant legend
-                )
-                plt.title('Overall Metrics Across Folds', pad=20)
-                plt.xticks(rotation=45)
-                plt.ylabel('Value')
-                plt.ylim(0, 1.1)
-                plt.grid(True, alpha=0.3)
-                plt.tight_layout()
-                plt.savefig(output_dir / 'cv_overall.png', dpi=300, bbox_inches='tight')
-                plt.close()
-
-            self.logger.info(f"Cross-validation plots saved in: {output_dir}")
-            self.logger.info(f"Files generated: ")
-            self.logger.info("  - cv_precision.png")
-            self.logger.info("  - cv_recall.png")
-            self.logger.info("  - cv_overall.png")
-
         except Exception as e:
             self.logger.error(f"Error creating CV plots: {str(e)}")
             self.logger.debug("Error details:", exc_info=True)
+    
+    def save_plots(self, plots_dir: Path) -> None:
+        """Save all collected plots to the specified directory"""
+        plots_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save any CV plots if they exist
+        if hasattr(self, '_cv_plots'):
+            for name, fig in self._cv_plots.items():
+                fig.savefig(plots_dir / name, dpi=300, bbox_inches='tight')
+                plt.close(fig)  # Clean up
+            
+            # Clear stored plots
+            self._cv_plots = {}
+            
+        self.logger.info(f"All plots saved to: {plots_dir}")
+
+    def _plot_class_precision(self, cv_results: List[Dict[str, float]], colors):
+        """Helper method for plotting class precision"""
+        precision_data = []
+        for i in range(self.num_classes):
+            key = f'precision_class_{i}'
+            if key in cv_results[0]:
+                values = [fold[key] for fold in cv_results]
+                precision_data.extend([{'Class': f'Class {i}', 'Value': v} for v in values])
+        
+        if precision_data:
+            df_precision = pd.DataFrame(precision_data)
+            sns.boxplot(data=df_precision, x='Class', y='Value', color=colors[0])
+            plt.title('Per-Class Precision Across Folds', pad=20)
+            plt.ylabel('Precision')
+            plt.ylim(0, 1.1)
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+
+    def _plot_class_recall(self, cv_results: List[Dict[str, float]], colors):
+        """Helper method for plotting class recall"""
+        recall_data = []
+        for i in range(self.num_classes):
+            key = f'recall_class_{i}'
+            if key in cv_results[0]:
+                values = [fold[key] for fold in cv_results]
+                recall_data.extend([{'Class': f'Class {i}', 'Value': v} for v in values])
+        
+        if recall_data:
+            df_recall = pd.DataFrame(recall_data)
+            sns.boxplot(data=df_recall, x='Class', y='Value', color=colors[1])
+            plt.title('Per-Class Recall Across Folds', pad=20)
+            plt.ylabel('Recall')
+            plt.ylim(0, 1.1)
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+
+    def _plot_overall_metrics(self, cv_results: List[Dict[str, float]], colors):
+        """Helper method for plotting overall metrics"""
+        overall_metrics = ['accuracy', 'f1_macro', 'precision_macro', 'recall_macro', 'kappa']
+        overall_data = []
+        
+        for metric in overall_metrics:
+            if metric in cv_results[0]:
+                values = [fold[metric] for fold in cv_results]
+                overall_data.extend([{'Metric': metric.replace('_', ' ').title(), 'Value': v} for v in values])
+        
+        if overall_data:
+            df_overall = pd.DataFrame(overall_data)
+            sns.boxplot(data=df_overall, x='Metric', y='Value', hue='Metric', legend=False)
+            plt.title('Overall Metrics Across Folds', pad=20)
+            plt.xticks(rotation=45)
+            plt.ylabel('Value')
+            plt.ylim(0, 1.1)
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()

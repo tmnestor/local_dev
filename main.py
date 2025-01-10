@@ -1,7 +1,6 @@
 import os
 import sys
 import argparse
-import logging
 from typing import Dict, Any
 from pathlib import Path  # Add this import
 
@@ -19,7 +18,7 @@ from utils.config import (
     resolve_optimizer_args,
     resolve_loss_args
 )
-from utils.logging import setup_logger
+from utils.logger import Logger  # Only import Logger, remove setup_logger
 from trainer.base_trainer import PyTorchTrainer
 from trainer.hyperparameter_tuner import (
     HyperparameterTuner,
@@ -40,7 +39,8 @@ def train_mode(config_path: str, force_retrain: bool = False):
     try:
         config = load_config(config_path)
         ConfigValidator.validate_config(config)
-        logger = setup_logger('TrainMode')
+        # Get logger with specific name to avoid duplication
+        logger = Logger.get_logger('TrainMode', console_output=True)
         
         # Ensure architecture yaml exists and has proper content
         if not os.path.exists(config['model']['architecture_yaml']):
@@ -342,7 +342,7 @@ def train_mode(config_path: str, force_retrain: bool = False):
 def inference_mode(config_path: str):
     """Run inference mode."""
     config = load_config(config_path)
-    logger = setup_logger('InferenceMode', log_level=logging.DEBUG)  # Set to DEBUG
+    logger = Logger.get_logger('InferenceMode', level=logging.DEBUG)  # Replace setup_logger
     
     # Add data inspection
     test_df = pd.read_csv(config['data']['test_path'])
@@ -443,7 +443,7 @@ def inference_mode(config_path: str):
 def online_learning_mode(config_path: str):
     """Mode for online learning with new data"""
     config = load_config(config_path)
-    logger = setup_logger('OnlineLearning')
+    logger = Logger.get_logger('OnlineLearning')  # Replace setup_logger
     
     # Initialize experiment tracker
     experiment_tracker = ExperimentTracker(
@@ -517,16 +517,25 @@ def main():
                       help='Force retraining even if best model exists')
     
     args = parser.parse_args()
-    config = load_config(args.config)
-    seed = config.get('seed', config['training'].get('seed', 42))
-    set_seed(seed)
     
-    if args.mode == 'train':
-        train_mode(args.config, args.force_retrain)
-    elif args.mode == 'infer':
-        inference_mode(args.config)
-    else:
-        online_learning_mode(args.config)
+    # Initialize logging only once at the start
+    Logger.setup()
+    logger = Logger.get_logger('Main', console_output=True)
+    
+    try:
+        config = load_config(args.config)
+        seed = config.get('seed', config['training'].get('seed', 42))
+        set_seed(seed)
+        
+        if args.mode == 'train':
+            train_mode(args.config, args.force_retrain)
+        elif args.mode == 'infer':
+            inference_mode(args.config)
+        else:
+            online_learning_mode(args.config)
+    except Exception as e:
+        logger.error(f"Program failed: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
