@@ -41,7 +41,7 @@
   metric: f1
   seed: 42
 best_model:
-  activation: elu
+  activation: leaky_relu
   architecture:
     activation: gelu
     architecture: resnet_mlp
@@ -70,21 +70,21 @@ best_model:
     n_layers: 3
     num_classes: 5
   best_metric_name: f1
-  best_metric_value: 0.29459424517791916
+  best_metric_value: 0.3003998578975031
   dropout_rate: 0.0
   hidden_layers:
-  - 192
-  - 192
-  - 192
-  - 192
-  hidden_size: 192
+  - 96
+  - 96
+  - 96
+  - 96
+  hidden_size: 96
   hyperparameters: null
-  learning_rate: 6.40305560521439e-05
+  learning_rate: 0.00011865796826668454
   metric_name: null
   metric_value: null
   n_layers: 4
   use_batch_norm: true
-  weight_decay: 3.888535428256742e-06
+  weight_decay: 2.6042810886700894e-05
 data:
   target_column: target
   test_path: data/test.csv
@@ -182,7 +182,48 @@ training:
     params: *id001
   seed: 42
 tuning:
+  advanced_pruning:
+    enabled: true
+    interval_steps: 2
+    max_resource: 100
+    min_resource: 1
+    n_warmup_steps: 5
+    percentile: 25.0
+    pruning_type: median
+    reduction_factor: 3
+    threshold: 0.1
   n_trials: 20
+  parameter_ranges:
+    complex_mlp:
+      hidden_size:
+      - 128
+      - 1024
+      layer_shrinkage:
+      - 0.3
+      - 0.8
+      lr:
+      - 1e-5
+      - 1e-2
+      n_layers:
+      - 3
+      - 9
+    resnet_mlp:
+      dropout_rate:
+      - 0.1
+      - 0.5
+      hidden_size:
+      - 64
+      - 512
+      lr:
+      - 1e-5
+      - 1e-2
+      n_layers:
+      - 2
+      - 8
   pruning:
     min_trials_complete: 5
     warm_up_epochs: 2
+  stability_checks:
+    cv_threshold: 0.1
+    min_performance: 0.2
+    required_improvement: 0.05

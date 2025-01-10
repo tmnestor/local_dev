@@ -234,6 +234,45 @@ class HyperparameterTuner:
             }
         }
 
+        # Get parameter ranges from config
+        self.param_ranges = config['tuning'].get('parameter_ranges', {})
+        self.stability_checks = config['tuning'].get('stability_checks', {})
+        
+        # Configure advanced pruning
+        pruning_config = config['tuning'].get('advanced_pruning', {})
+        if pruning_config.get('enabled', False):
+            pruner_type = pruning_config['pruning_type']
+            pruner_class = self.pruning_strategies[pruner_type]
+            
+            # Create pruner with appropriate parameters based on type
+            if pruner_type == 'median':
+                self.pruner = pruner_class(
+                    n_startup_trials=pruning_config.get('n_warmup_steps', 5),
+                    n_warmup_steps=pruning_config.get('interval_steps', 2),
+                    interval_steps=pruning_config.get('interval_steps', 1)
+                )
+            elif pruner_type == 'percentile':
+                self.pruner = pruner_class(
+                    percentile=pruning_config.get('percentile', 25.0),
+                    n_startup_trials=pruning_config.get('n_warmup_steps', 5),
+                    n_warmup_steps=pruning_config.get('interval_steps', 2)
+                )
+            elif pruner_type == 'hyperband':
+                self.pruner = pruner_class(
+                    min_resource=pruning_config.get('min_resource', 1),
+                    max_resource=pruning_config.get('max_resource', self.config['training']['epochs']),
+                    reduction_factor=pruning_config.get('reduction_factor', 3)
+                )
+            elif pruner_type == 'threshold':
+                self.pruner = pruner_class(
+                    lower=pruning_config.get('threshold', 0.1),
+                    n_warmup_steps=pruning_config.get('n_warmup_steps', 5)
+                )
+            else:
+                self.pruner = optuna.pruners.MedianPruner()
+        else:
+            self.pruner = optuna.pruners.MedianPruner()
+
     def create_model_and_optimizer(self, trial):
         """Create model and optimizer based on trial parameters."""
         # First suggest architecture type as it determines other parameters
@@ -243,10 +282,14 @@ class HyperparameterTuner:
         ACTIVATIONS = ['relu', 'gelu', 'leaky_relu', 'elu']
         
         # Group related parameters by architecture type
+        ranges = self.param_ranges.get(arch_type, {})
+        
         if arch_type == 'resnet_mlp':
             params = {
-                'hidden_size': trial.suggest_int('resnet/hidden_size', 64, 512, step=32),
-                'n_layers': trial.suggest_int('resnet/n_layers', 2, 6),
+                'hidden_size': trial.suggest_int('resnet/hidden_size', 
+                    *ranges.get('hidden_size', [64, 512]), step=32),
+                'n_layers': trial.suggest_int('resnet/n_layers', 
+                    *ranges.get('n_layers', [2, 6])),
                 'lr': trial.suggest_float('resnet/lr', 5e-5, 5e-2, log=True),
                 'weight_decay': trial.suggest_float('resnet/weight_decay', 1e-6, 1e-3, log=True),
                 'activation': trial.suggest_categorical('resnet/activation', ACTIVATIONS),
@@ -256,8 +299,10 @@ class HyperparameterTuner:
             use_batch_norm = True
         else:
             params = {
-                'hidden_size': trial.suggest_int('complex/hidden_size', 128, 1024, step=32),
-                'n_layers': trial.suggest_int('complex/n_layers', 3, 7),
+                'hidden_size': trial.suggest_int('complex/hidden_size', 
+                    *ranges.get('hidden_size', [128, 1024]), step=32),
+                'n_layers': trial.suggest_int('complex/n_layers', 
+                    *ranges.get('n_layers', [3, 7])),
                 'lr': trial.suggest_float('complex/lr', 5e-5, 5e-2, log=True),
                 'weight_decay': trial.suggest_float('complex/weight_decay', 1e-6, 1e-3, log=True),
                 'dropout_rate': trial.suggest_float('complex/dropout_rate', 0.1, 0.7),
@@ -431,132 +476,168 @@ class HyperparameterTuner:
 
     def objective(self, trial, train_loader, val_loader):
         """Objective function for Optuna optimization."""
-        start_time = time.time()
-        model, optimizer, trial_params = self.create_model_and_optimizer(trial)
-        arch_type = trial_params['architecture_type']
-        trial.set_user_attr('architecture_type', arch_type)
-        
-        # Create criterion
-        criterion = getattr(nn, self.config['training']['loss']['name'])()
-        
-        # Create proper configuration for trainer
-        trainer_config = {
-            'model': {
-                'num_classes': self.config['model']['num_classes'],
-                'input_size': self.config['model']['input_size'],
-                'architecture': trial_params['architecture']
-            },
-            'training': self.config['training'],
-            'device': self.config['device']
-        }
-        
-        # Create trainer in tuning mode with proper configuration
-        trainer = PyTorchTrainer(
-            model, criterion, optimizer,
-            device=self.config['device'],
-            verbose=False,
-            config=trainer_config,
-            tuning_mode=True,
-            metrics_tuning_mode=True
-        )
-        
-        # Early performance check after first epoch
-        trainer.train_epoch(train_loader)
-        _, accuracy, f1 = trainer.evaluate(val_loader)
-        metric = f1 if self.config['training']['metric'] == 'f1' else accuracy
-        
-        # Early pruning if first epoch performance is poor
-        if len(self.trial_history) > 3:
-            avg_first_metric = sum(
-                t['first_epoch_metric'] 
-                for t in self.trial_history.values()
-            ) / len(self.trial_history)
+        try:
+            start_time = time.time()
+            model, optimizer, trial_params = self.create_model_and_optimizer(trial)
+            arch_type = trial_params['architecture_type']
+            trial.set_user_attr('architecture_type', arch_type)
             
-            if metric < avg_first_metric * 0.8:  # 20% worse than average
-                self.pruning_stats['pruned_trials'] += 1
-                raise optuna.TrialPruned(
-                    f"First epoch metric {metric:.4f} below threshold {avg_first_metric * 0.8:.4f}"
-                )
-        
-        # Continue with rest of training
-        patience = self.config['early_stopping']['patience']
-        min_delta = self.config['early_stopping']['min_delta']
-        best_metric = metric
-        patience_counter = 0
-        running_metrics = [metric]
-        
-        # Store first epoch metric
-        trial.set_user_attr('first_epoch_metric', metric)
-        
-        for epoch in range(1, self.config['training']['epochs']):
+            # Initialize cv_stats at the beginning
+            trial.set_user_attr('cv_stats', {
+                'std': 0.0,
+                'variance': 0.0,
+                'confidence_interval': [0.0, 0.0],
+                'stability_score': 0.0
+            })
+            
+            # Create criterion
+            criterion = getattr(nn, self.config['training']['loss']['name'])()
+            
+            # Create proper configuration for trainer
+            trainer_config = {
+                'model': {
+                    'num_classes': self.config['model']['num_classes'],
+                    'input_size': self.config['model']['input_size'],
+                    'architecture': trial_params['architecture']
+                },
+                'training': self.config['training'],
+                'device': self.config['device']
+            }
+            
+            # Create trainer in tuning mode with proper configuration
+            trainer = PyTorchTrainer(
+                model, criterion, optimizer,
+                device=self.config['device'],
+                verbose=False,
+                config=trainer_config,
+                tuning_mode=True,
+                metrics_tuning_mode=True
+            )
+            
+            # Early performance check after first epoch
             trainer.train_epoch(train_loader)
             _, accuracy, f1 = trainer.evaluate(val_loader)
             metric = f1 if self.config['training']['metric'] == 'f1' else accuracy
             
-            trial.report(metric, epoch)
+            # Early pruning if first epoch performance is poor
+            if len(self.trial_history) > 3:
+                avg_first_metric = sum(
+                    t['first_epoch_metric'] 
+                    for t in self.trial_history.values()
+                ) / len(self.trial_history)
+                
+                if metric < avg_first_metric * 0.8:  # 20% worse than average
+                    self.pruning_stats['pruned_trials'] += 1
+                    raise optuna.TrialPruned(
+                        f"First epoch metric {metric:.4f} below threshold {avg_first_metric * 0.8:.4f}"
+                    )
             
-            if trial.should_prune():
-                self.pruning_stats['pruned_trials'] += 1
-                raise optuna.TrialPruned()
+            # Continue with rest of training
+            patience = self.config['early_stopping']['patience']
+            min_delta = self.config['early_stopping']['min_delta']
+            best_metric = metric
+            patience_counter = 0
+            running_metrics = [metric]
             
-            running_metrics.append(metric)
-            if len(running_metrics) > 3:
-                running_metrics.pop(0)
+            # Store first epoch metric
+            trial.set_user_attr('first_epoch_metric', metric)
             
-            if metric > best_metric + min_delta:
-                best_metric = metric
-                patience_counter = 0
-            else:
-                patience_counter += 1
-            
-            # More aggressive early stopping during tuning
-            if patience_counter >= min(patience, 5):  # Use shorter patience during tuning
-                self.pruning_stats['early_stopped_trials'] += 1
-                # Set the completed epochs before breaking
-                trial.set_user_attr('completed_epochs', epoch + 1)
-                break
-            
-            # Dynamic pruning based on running average
-            if epoch >= 3:
-                avg_metric = sum(running_metrics) / len(running_metrics)
-                if (best_metric - avg_metric) / best_metric > 0.2:  # 20% deterioration
+            for epoch in range(1, self.config['training']['epochs']):
+                trainer.train_epoch(train_loader)
+                _, accuracy, f1 = trainer.evaluate(val_loader)
+                metric = f1 if self.config['training']['metric'] == 'f1' else accuracy
+                
+                trial.report(metric, epoch)
+                
+                if trial.should_prune():
                     self.pruning_stats['pruned_trials'] += 1
                     raise optuna.TrialPruned()
-        
-        # Set completed epochs if we completed all epochs
-        if epoch + 1 >= self.config['training']['epochs']:
-            trial.set_user_attr('completed_epochs', self.config['training']['epochs'])
-        
-        # Store trial results for parameter optimization
-        self.trial_history[trial.number] = {
-            'metric': best_metric,
-            'params': trial_params,
-            'first_epoch_metric': trial.user_attrs['first_epoch_metric'],
-            'duration': time.time() - start_time,
-            'completed_epochs': trial.user_attrs['completed_epochs'],
-            'cv_stats': {
-                'std': trial.user_attrs.get('cv_std', 0.0),
-                'variance': trial.user_attrs.get('cv_variance', 0.0),
-                'confidence_interval': trial.user_attrs.get('cv_confidence_interval', [0.0, 0.0]),
-                'stability_score': trial.user_attrs.get('cv_stability', 0.0)
+                
+                running_metrics.append(metric)
+                if len(running_metrics) > 3:
+                    running_metrics.pop(0)
+                
+                if metric > best_metric + min_delta:
+                    best_metric = metric
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
+                
+                # More aggressive early stopping during tuning
+                if patience_counter >= min(patience, 5):  # Use shorter patience during tuning
+                    self.pruning_stats['early_stopped_trials'] += 1
+                    # Set the completed epochs before breaking
+                    trial.set_user_attr('completed_epochs', epoch + 1)
+                    break
+                
+                # Dynamic pruning based on running average
+                if epoch >= 3:
+                    avg_metric = sum(running_metrics) / len(running_metrics)
+                    if (best_metric - avg_metric) / best_metric > 0.2:  # 20% deterioration
+                        self.pruning_stats['pruned_trials'] += 1
+                        raise optuna.TrialPruned()
+            
+            # Set completed epochs if we completed all epochs
+            if epoch + 1 >= self.config['training']['epochs']:
+                trial.set_user_attr('completed_epochs', self.config['training']['epochs'])
+            
+            # Store trial results for parameter optimization
+            self.trial_history[trial.number] = {
+                'metric': best_metric,
+                'params': trial_params,
+                'first_epoch_metric': trial.user_attrs['first_epoch_metric'],
+                'duration': time.time() - start_time,
+                'completed_epochs': trial.user_attrs['completed_epochs'],
+                'cv_stats': {
+                    'std': trial.user_attrs.get('cv_std', 0.0),
+                    'variance': trial.user_attrs.get('cv_variance', 0.0),
+                    'confidence_interval': trial.user_attrs.get('cv_confidence_interval', [0.0, 0.0]),
+                    'stability_score': trial.user_attrs.get('cv_stability', 0.0)
+                }
             }
-        }
-        
-        self.pruning_stats['completed_trials'] += 1
-        
-        # Log efficiency statistics periodically
-        if len(self.trial_history) % 5 == 0:
-            self.logger.info("\nTuning Efficiency Stats:")
-            self.logger.info(f"Completed: {self.pruning_stats['completed_trials']}")
-            self.logger.info(f"Pruned: {self.pruning_stats['pruned_trials']}")
-            self.logger.info(f"Early Stopped: {self.pruning_stats['early_stopped_trials']}")
-            avg_duration = sum(t['duration'] for t in self.trial_history.values()) / len(self.trial_history)
-            self.logger.info(f"Average trial duration: {avg_duration:.2f}s")
-            self.logger.info("\nCross Validation Stats:")
-            self.logger.info(f"Avg CV Std: {np.mean([t['cv_stats']['std'] for t in self.trial_history.values()]):.4f}")
-            self.logger.info(f"Most Stable Trial: {min(self.trial_history.items(), key=lambda x: x[1]['cv_stats']['std'])[0]}")
-        
-        return best_metric
+            
+            self.pruning_stats['completed_trials'] += 1
+            
+            # Log efficiency statistics periodically
+            if len(self.trial_history) % 5 == 0:
+                self.logger.info("\nTuning Efficiency Stats:")
+                self.logger.info(f"Completed: {self.pruning_stats['completed_trials']}")
+                self.logger.info(f"Pruned: {self.pruning_stats['pruned_trials']}")
+                self.logger.info(f"Early Stopped: {self.pruning_stats['early_stopped_trials']}")
+                avg_duration = sum(t['duration'] for t in self.trial_history.values()) / len(self.trial_history)
+                self.logger.info(f"Average trial duration: {avg_duration:.2f}s")
+                self.logger.info("\nCross Validation Stats:")
+                self.logger.info(f"Avg CV Std: {np.mean([t['cv_stats']['std'] for t in self.trial_history.values()]):.4f}")
+                self.logger.info(f"Most Stable Trial: {min(self.trial_history.items(), key=lambda x: x[1]['cv_stats']['std'])[0]}")
+            
+            # Add stability checks with proper error handling
+            if len(self.trial_history) > 3:
+                try:
+                    cv_stats = trial.user_attrs['cv_stats']
+                    if cv_stats['std'] > self.stability_checks.get('cv_threshold', 0.1):
+                        self.pruning_stats['pruned_trials'] += 1
+                        raise optuna.TrialPruned("Model unstable across CV folds")
+                    
+                    if metric < self.stability_checks.get('min_performance', 0.2):
+                        self.pruning_stats['pruned_trials'] += 1
+                        raise optuna.TrialPruned("Performance below minimum threshold")
+                    
+                    best_so_far = max(t['metric'] for t in self.trial_history.values())
+                    if (best_so_far - metric) > self.stability_checks.get('required_improvement', 0.05):
+                        self.pruning_stats['pruned_trials'] += 1
+                        raise optuna.TrialPruned("Insufficient improvement over best model")
+                except KeyError as e:
+                    self.logger.warning(f"Missing key in trial attributes: {e}")
+                except Exception as e:
+                    self.logger.warning(f"Error during stability check: {e}")
+            
+            return best_metric
+            
+        except optuna.TrialPruned:
+            raise
+        except Exception as e:
+            self.logger.error(f"Trial failed: {str(e)}")
+            raise
 
     def tune(self, train_loader, val_loader):
         """Run hyperparameter tuning with Optuna."""
@@ -574,15 +655,10 @@ class HyperparameterTuner:
             group=True  # Enable parameter grouping
         )
         
-        # Create a study with parameter grouping enabled
+        # Create a study with properly configured pruner
         study = optuna.create_study(
             direction="maximize",
-            pruner=optuna.pruners.MedianPruner(
-                n_startup_trials=5,
-                n_warmup_steps=5,
-                interval_steps=1,
-                n_min_trials=4
-            ),
+            pruner=self.pruner,
             sampler=sampler
         )
         

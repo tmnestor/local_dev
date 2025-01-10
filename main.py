@@ -28,35 +28,6 @@ from trainer.hyperparameter_tuner import (
 )
 from trainer.cpu_optimizer import CPUOptimizer, set_seed
 from utils.config_validator import ConfigValidator, ConfigValidationError
-import click
-from functools import wraps
-
-def handle_errors(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        try:
-            return f(*args, **kwargs)
-        except ConfigValidationError as e:
-            logger.error(f"Configuration error: {e}")
-            sys.exit(1)
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            logger.debug("Stack trace:", exc_info=True)
-            sys.exit(1)
-    return wrapper
-
-@click.group()
-def cli():
-    """ML Training and Inference CLI"""
-    pass
-
-@cli.command()
-@click.option('--config', default='config.yaml', help='Path to config file')
-@click.option('--force-retrain', is_flag=True, help='Force retraining')
-@handle_errors
-def train(config, force_retrain):
-    """Train the model"""
-    train_mode(config, force_retrain)
 
 def _configure_dataloader_params(config):
     """Helper function to configure dataloader parameters."""
@@ -65,12 +36,26 @@ def _configure_dataloader_params(config):
         params['num_workers'] = min(os.cpu_count(), 8)
     return params
 
-def train_mode(config_path: str, force_retrain: bool = False):
+def train_mode(config_path: str, force_retrain: bool = False, advanced_tuning: bool = False):
+    # Get logger first before any operations
+    logger = Logger.get_logger('TrainMode', console_output=True)
+    
     try:
         config = load_config(config_path)
+        
+        # Enable advanced tuning if flag is set
+        if advanced_tuning:
+            config['tuning']['advanced_pruning']['enabled'] = True
+            config['tuning']['n_trials'] = config['tuning'].get('n_trials', 20) * 2  # Double trials
+            config['tuning'].setdefault('stability_checks', {}).update({
+                'cv_threshold': 0.08,  # Stricter threshold
+                'min_performance': 0.25,  # Higher minimum performance
+                'required_improvement': 0.03  # More sensitive improvement check
+            })
+            logger.info("Advanced tuning enabled with enhanced settings")
+        
         ConfigValidator.validate_config(config)
         # Get logger with specific name to avoid duplication
-        logger = Logger.get_logger('TrainMode', console_output=True)
         
         # Ensure architecture yaml exists and has proper content
         if not os.path.exists(config['model']['architecture_yaml']):
@@ -548,7 +533,6 @@ def online_learning_mode(config_path: str):
     for metric_name, value in metrics.items():
         logger.info(f"{metric_name}: {value:.4f}")
 
-# Update main() function
 def main():
     parser = argparse.ArgumentParser(description='Train or run inference with PyTorch model')
     parser.add_argument('--config', type=str, default='config.yaml',
@@ -558,13 +542,15 @@ def main():
                       help='Mode to run: train, infer, or online')
     parser.add_argument('--force-retrain', action='store_true',
                       help='Force retraining even if best model exists')
+    parser.add_argument('--advanced-tuning', action='store_true',
+                      help='Enable advanced hyperparameter tuning')
     
     args = parser.parse_args()
     
-    # Initialize logging only once at the start
-    logging.basicConfig(level=logging.INFO)  # Add basic logging configuration
+    # Initialize logging
+    logging.basicConfig(level=logging.INFO)
     Logger.setup()
-    logger = Logger.get_logger('Main', console_output=True)
+    main_logger = Logger.get_logger('Main', console_output=True)
     
     try:
         config = load_config(args.config)
@@ -572,13 +558,13 @@ def main():
         set_seed(seed)
         
         if args.mode == 'train':
-            train_mode(args.config, args.force_retrain)
+            train_mode(args.config, args.force_retrain, args.advanced_tuning)
         elif args.mode == 'infer':
             inference_mode(args.config)
         else:
             online_learning_mode(args.config)
     except Exception as e:
-        logger.error(f"Program failed: {str(e)}")
+        main_logger.error(f"Program failed: {str(e)}")
         sys.exit(1)
 
 if __name__ == "__main__":
