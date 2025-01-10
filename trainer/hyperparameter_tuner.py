@@ -212,6 +212,27 @@ class HyperparameterTuner:
             'num_classes': self.num_classes,
             'device': self.device
         }
+        
+        self.pruning_strategies = {
+            'median': optuna.pruners.MedianPruner,
+            'percentile': optuna.pruners.PercentilePruner,
+            'hyperband': optuna.pruners.HyperbandPruner,
+            'threshold': optuna.pruners.ThresholdPruner
+        }
+        
+        # Add customizable parameter spaces
+        self.param_spaces = {
+            'learning_rate': {
+                'type': 'float',
+                'range': (1e-5, 1e-2),
+                'log': True
+            },
+            'hidden_size': {
+                'type': 'int',
+                'range': (32, 512),
+                'step': 32
+            }
+        }
 
     def create_model_and_optimizer(self, trial):
         """Create model and optimizer based on trial parameters."""

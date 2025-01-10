@@ -33,6 +33,26 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Coverage reports
+.coverage
+coverage.xml
+htmlcov/
+
+# pytest
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+
+# Profiling
+*.prof
+*.pstats
+
+# Experiment tracking
+wandb/
+mlruns/
+tensorboard/
+
 # Distribution / packaging
 dist/
 build/

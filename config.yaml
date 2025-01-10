@@ -1,50 +1,47 @@
-# Common defaults
-.defaults: &defaults
+.defaults:
   enabled: true
   track: true
-
-# Model dimensions
-.dimensions: &model_dims
+.dimensions:
   input_size: 7
   num_classes: 5
-
-# Common intervals
-.intervals: &intervals
+.intervals:
   plot_interval: 5
   save_interval: 10
-
-# Common paths
-.paths: &data_paths
-  train_path: data/train.csv
-  val_path: data/val.csv
-  test_path: data/test.csv
-
-# Base monitoring settings
-.monitoring_base: &monitoring_base
+.monitoring_base:
   enabled: true
   log_dir: monitoring
   log_file: performance.log
-
-# Optimizer settings
-.optimizer: &optimizer_settings
+.monitoring_settings:
+  enabled: true
+  track: true
+  track_throughput: true
+  track_time: true
+.optimizer:
   name: Adam
-  params: &adam_params
-    betas: [0.9, 0.999]
+  params: &id001
+    betas:
+    - 0.9
+    - 0.999
     eps: 1.0e-08
     lr: 0.001
     weight_decay: 0.0
-
-# Training base settings
-.training: &training_base
+.paths:
+  test_path: data/test.csv
+  train_path: data/train.csv
+  val_path: data/val.csv
+.plotting_settings:
+  enabled: true
+  plot_interval: 5
+  save_best: true
+  save_interval: 10
+.training:
   batch_size: 32
+  device: cpu
   epochs: 100
   metric: f1
-  device: cpu
   seed: 42
-
-# Main configuration
 best_model:
-  activation: leaky_relu
+  activation: elu
   architecture:
     activation: gelu
     architecture: resnet_mlp
@@ -73,73 +70,78 @@ best_model:
     n_layers: 3
     num_classes: 5
   best_metric_name: f1
-  best_metric_value: 0.2742516801340331
+  best_metric_value: 0.29459424517791916
   dropout_rate: 0.0
   hidden_layers:
-  - 64
-  - 64
-  - 64
-  hidden_size: 64
+  - 192
+  - 192
+  - 192
+  - 192
+  hidden_size: 192
   hyperparameters: null
-  learning_rate: 0.0019150388839257822
+  learning_rate: 6.40305560521439e-05
   metric_name: null
   metric_value: null
-  n_layers: 3
+  n_layers: 4
   use_batch_norm: true
-  weight_decay: 0.0005323663316764337
-
+  weight_decay: 3.888535428256742e-06
 data:
-  <<: *data_paths
   target_column: target
-
+  test_path: data/test.csv
+  train_path: data/train.csv
+  val_path: data/val.csv
 dataloader:
   drop_last: true
   num_workers: auto
   persistent_workers: true
   pin_memory: false
   prefetch_factor: 2
-
 device: cpu
-
 early_stopping:
   min_delta: 0.001
   patience: 5
-
 logging:
   directory: logs
   filename: training.log
   format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
   level: INFO
-
 model:
-  <<: *model_dims
   architecture_yaml: models/configs/resnet_mlp.yaml
+  input_size: 7
+  num_classes: 5
   save_path: models/best_model.pt
   type: resnet_mlp
-
 monitoring:
-  <<: *monitoring_base
   checkpoints:
+    enabled: true
     filename: model_checkpoint.pt
+    plot_interval: 5
     save_best: true
-    <<: *intervals
+    save_interval: 10
+  enabled: true
+  log_dir: monitoring
+  log_file: performance.log
   memory:
-    <<: *defaults
+    enabled: true
     include_gpu: true
-  metrics:
-    output_file: metrics.yaml
-    <<: *intervals
-  performance:
-    <<: *defaults
+    track: true
     track_throughput: true
     track_time: true
-
+  metrics:
+    enabled: true
+    output_file: metrics.yaml
+    plot_interval: 5
+    save_best: true
+    save_interval: 10
+  performance:
+    enabled: true
+    track: true
+    track_throughput: true
+    track_time: true
 optimization:
   memory:
     gradient_accumulation_steps: 16
-
 seed: 42
-
 techniques:
   scheduler:
     params:
@@ -149,23 +151,17 @@ techniques:
       pct_start: 0.3
     type: OneCycleLR
   swa:
-    <<: *defaults
+    enabled: true
     lr: 0.001
     start_epoch: 75
+    track: true
   warmup:
-    <<: *defaults
+    enabled: true
     initial_lr_factor: 0.01
     max_steps: 1000
-
+    track: true
 training:
-  <<: *training_base
-  optimizer:
-    <<: *optimizer_settings
-  loss:
-    label_smoothing:
-      enabled: false
-      factor: 0.1
-    name: CrossEntropyLoss
+  batch_size: 32
   cpu_optimization:
     enable_mkldnn: true
     num_threads: auto
@@ -173,7 +169,18 @@ training:
   cross_validation:
     max_epochs: 20
     n_splits: 7
-
+  device: cpu
+  epochs: 100
+  loss:
+    label_smoothing:
+      enabled: false
+      factor: 0.1
+    name: CrossEntropyLoss
+  metric: f1
+  optimizer:
+    name: Adam
+    params: *id001
+  seed: 42
 tuning:
   n_trials: 20
   pruning:

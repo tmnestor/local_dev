@@ -7,7 +7,8 @@ import random
 import copy
 import logging
 import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Tuple, List, Union
+from torch import Tensor
 
 # Data handling
 import pandas as pd
@@ -145,34 +146,51 @@ class PyTorchTrainer:
         else:
             self.performance_monitor = None
         
-    def train_epoch(self, train_loader, val_loader=None):
-        """Trains the model for one epoch."""
-        self.model.train()
-        total_loss = 0
-        correct = 0
-        total = 0
+    def train_epoch(self, train_loader, val_loader=None) -> Tuple[float, float]:
+        """
+        Trains the model for one epoch.
         
-        for batch_X, batch_y in train_loader:
-            batch_X, batch_y = batch_X.to(self.device), batch_y.to(self.device)
-            self.optimizer.zero_grad()
-            outputs = self.model(batch_X)
-            loss = self.criterion(outputs, batch_y)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-            self.optimizer.step()
+        Returns:
+            Tuple[float, float]: (train_loss, train_accuracy)
+        """
+        try:
+            self.model.train()
+            total_loss = 0
+            correct = 0
+            total = 0
             
-            total_loss += loss.item()
-            _, predicted = torch.max(outputs.data, 1)
-            total += batch_y.size(0)
-            correct += (predicted == batch_y).sum().item()
-        
-        train_loss = total_loss / len(train_loader)
-        train_accuracy = 100 * correct / total
-        
-        return train_loss, train_accuracy
+            for batch_X, batch_y in train_loader:
+                batch_X, batch_y = batch_X.to(self.device), batch_y.to(self.device)
+                self.optimizer.zero_grad()
+                outputs = self.model(batch_X)
+                loss = self.criterion(outputs, batch_y)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                self.optimizer.step()
+                
+                total_loss += loss.item()
+                _, predicted = torch.max(outputs.data, 1)
+                total += batch_y.size(0)
+                correct += (predicted == batch_y).sum().item()
+            
+            train_loss = total_loss / len(train_loader)
+            train_accuracy = 100 * correct / total
+            
+            return train_loss, train_accuracy
+        except RuntimeError as e:
+            self.logger.error(f"CUDA error during training: {str(e)}")
+            raise
+        except Exception as e:
+            self.logger.error(f"Unexpected error during training: {str(e)}")
+            raise
     
-    def evaluate(self, val_loader):
-        """Evaluates the model on validation data."""
+    def evaluate(self, val_loader) -> Tuple[float, float, float]:
+        """
+        Evaluates the model on validation data.
+        
+        Returns:
+            Tuple[float, float, float]: (val_loss, val_accuracy, val_f1)
+        """
         self.model.eval()
         total_loss = 0
         total_samples = 0

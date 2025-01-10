@@ -28,6 +28,35 @@ from trainer.hyperparameter_tuner import (
 )
 from trainer.cpu_optimizer import CPUOptimizer, set_seed
 from utils.config_validator import ConfigValidator, ConfigValidationError
+import click
+from functools import wraps
+
+def handle_errors(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except ConfigValidationError as e:
+            logger.error(f"Configuration error: {e}")
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            logger.debug("Stack trace:", exc_info=True)
+            sys.exit(1)
+    return wrapper
+
+@click.group()
+def cli():
+    """ML Training and Inference CLI"""
+    pass
+
+@cli.command()
+@click.option('--config', default='config.yaml', help='Path to config file')
+@click.option('--force-retrain', is_flag=True, help='Force retraining')
+@handle_errors
+def train(config, force_retrain):
+    """Train the model"""
+    train_mode(config, force_retrain)
 
 def _configure_dataloader_params(config):
     """Helper function to configure dataloader parameters."""
