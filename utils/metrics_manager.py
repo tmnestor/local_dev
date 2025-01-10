@@ -137,7 +137,19 @@ class MetricsManager:
             self.val_metrics.append(metrics)
         else:
             self.train_metrics.append(metrics)
-            
+        
+        # Store more metrics for final reporting
+        metrics['kappa'] = float(cohen_kappa_score(targets, predictions))
+        
+        if self.num_classes == 2:  # Binary classification
+            try:
+                metrics['auroc'] = float(roc_auc_score(targets, predictions))
+                metrics['avg_precision'] = float(average_precision_score(targets, predictions))
+            except ValueError:
+                # Handle cases where metrics can't be computed
+                metrics['auroc'] = 0.0
+                metrics['avg_precision'] = 0.0
+
         return metrics
     
     def _get_default_metrics(self) -> Dict[str, float]:
@@ -456,3 +468,159 @@ class MetricsManager:
             plt.ylim(0, 1.1)
             plt.grid(True, alpha=0.3)
             plt.tight_layout()
+
+    def generate_comprehensive_report(self) -> str:
+        """Generate comprehensive performance report with all metrics and tests."""
+        if not self.predictions or not self.true_labels:
+            return "No predictions available for report generation."
+
+        # Convert to numpy for calculations
+        y_true = np.array(self.true_labels)
+        y_pred = np.array(self.predictions)
+
+        # 1. Basic Performance Metrics
+        accuracy = (y_pred == y_true).mean()
+        precision, recall, f1, _ = precision_recall_fscore_support(
+            y_true, y_pred,
+            average='macro',
+            zero_division=0
+        )
+
+        # 2. Statistical Tests
+        stats_tests = self.compute_statistical_significance()
+
+        # 3. Detailed Classification Report
+        class_report = classification_report(y_true, y_pred, output_dict=True)
+
+        # 4. Per-Class Analysis
+        per_class_metrics = {}
+        for i in range(self.num_classes):
+            class_mask = (y_true == i)
+            if class_mask.sum() > 0:
+                class_acc = (y_pred[class_mask] == i).mean()
+                class_prec = precision_recall_fscore_support(
+                    y_true == i,
+                    y_pred == i,
+                    average='binary'
+                )[:3]
+                per_class_metrics[i] = {
+                    'accuracy': class_acc,
+                    'precision': class_prec[0],
+                    'recall': class_prec[1],
+                    'f1': class_prec[2]
+                }
+
+        # Generate formatted report
+        report = [
+            "=" * 80,
+            "COMPREHENSIVE MODEL PERFORMANCE REPORT",
+            "=" * 80,
+            "",
+            "1. OVERALL PERFORMANCE METRICS",
+            "-" * 40,
+            f"Accuracy:  {accuracy:.4f}",
+            f"Precision: {precision:.4f}",
+            f"Recall:    {recall:.4f}",
+            f"F1 Score:  {f1:.4f}",
+            "",
+            "2. STATISTICAL SIGNIFICANCE TESTS",
+            "-" * 40,
+            f"Chi-Square Test:",
+            f"  Statistic: {stats_tests['chi2_stat']:.4f}",
+            f"  P-value:   {stats_tests['chi2_pvalue']:.4f}",
+            "",
+            f"McNemar's Test:",
+            f"  Statistic: {stats_tests['mcnemar_stat']:.4f}",
+            f"  P-value:   {stats_tests['mcnemar_pvalue']:.4f}",
+            "",
+            "3. PER-CLASS PERFORMANCE",
+            "-" * 40
+        ]
+
+        # Add per-class metrics
+        for class_idx, metrics in per_class_metrics.items():
+            report.extend([
+                f"Class {class_idx}:",
+                f"  Accuracy:  {metrics['accuracy']:.4f}",
+                f"  Precision: {metrics['precision']:.4f}",
+                f"  Recall:    {metrics['recall']:.4f}",
+                f"  F1 Score:  {metrics['f1']:.4f}",
+                ""
+            ])
+
+        # Add confusion matrix visualization
+        cm = confusion_matrix(y_true, y_pred)
+        cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        report.extend([
+            "4. CONFUSION MATRIX (Normalized)",
+            "-" * 40
+        ])
+        
+        # Format confusion matrix
+        for i in range(cm_normalized.shape[0]):
+            row = [f"{x:.3f}" for x in cm_normalized[i]]
+            report.append("  " + " ".join(f"{x:>8}" for x in row))
+        
+        report.extend([
+            "",
+            "5. ADDITIONAL METRICS",
+            "-" * 40,
+            f"Cohen's Kappa Score: {cohen_kappa_score(y_true, y_pred):.4f}"
+        ])
+
+        if y_true.max() == 1:  # Binary classification
+            auroc = roc_auc_score(y_true, y_pred)
+            avg_precision = average_precision_score(y_true, y_pred)
+            report.extend([
+                f"ROC AUC Score:        {auroc:.4f}",
+                f"Average Precision:    {avg_precision:.4f}"
+            ])
+
+        # Add cross-validation summary if available
+        if hasattr(self, 'cv_results'):
+            cv_summary = self.summarize_cross_validation(self.cv_results)
+            report.extend([
+                "",
+                "6. CROSS-VALIDATION SUMMARY",
+                "-" * 40
+            ])
+            
+            for metric, stats in cv_summary.items():
+                if isinstance(stats, dict) and 'mean' in stats:
+                    report.extend([
+                        f"{metric}:",
+                        f"  Mean ± Std: {stats['mean']:.4f} ± {stats['std']:.4f}",
+                        f"  95% CI: [{stats['ci_95'][0]:.4f}, {stats['ci_95'][1]:.4f}]",
+                        f"  Range: [{stats['min']:.4f}, {stats['max']:.4f}]",
+                        ""
+                    ])
+
+        report.extend([
+            "=" * 80,
+            "END OF REPORT",
+            "=" * 80
+        ])
+
+        return "\n".join(report)
+
+    def evaluate(self, val_loader) -> None:
+        """Evaluate model and print comprehensive report"""
+        # Ensure we have predictions
+        if not self.predictions:
+            self.logger.warning("No predictions available for evaluation")
+            return
+
+        # Generate and print report
+        report = self.generate_comprehensive_report()
+        
+        # Log report
+        self.logger.info("\nModel Evaluation Report:")
+        for line in report.split('\n'):
+            self.logger.info(line)
+
+        # Save report to file
+        report_path = self.metrics_dir / 'evaluation_report.txt'
+        with open(report_path, 'w') as f:
+            f.write(report)
+        
+        self.logger.info(f"\nDetailed evaluation report saved to: {report_path}")

@@ -28,20 +28,20 @@ best_model:
     n_layers: 3
     num_classes: 5
   best_metric_name: f1
-  best_metric_value: 0.2856620597458449
+  best_metric_value: 0.2742516801340331
   dropout_rate: 0.0
   hidden_layers:
-  - 480
-  - 480
-  - 480
-  hidden_size: 480
+  - 64
+  - 64
+  - 64
+  hidden_size: 64
   hyperparameters: null
-  learning_rate: 7.676292834868596e-05
+  learning_rate: 0.0019150388839257822
   metric_name: null
   metric_value: null
   n_layers: 3
   use_batch_norm: true
-  weight_decay: 0.000146047035329632
+  weight_decay: 0.0005323663316764337
 data:
   target_column: target
   test_path: data/test.csv

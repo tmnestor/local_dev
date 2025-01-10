@@ -1,8 +1,9 @@
 import os
 import sys
 import argparse
+import logging  # Add this import
+from pathlib import Path
 from typing import Dict, Any
-from pathlib import Path  # Add this import
 
 # Data handling
 import pandas as pd
@@ -434,8 +435,21 @@ def inference_mode(config_path: str):
     logger.info("Evaluating model on test set...")  # Updated message
     test_loss, test_accuracy, test_f1 = trainer.evaluate(test_loader)  # Changed var names
     
-    # Log results
-    logger.info(f"\nTest Results:")  # Updated message
+    # Generate and print comprehensive report
+    if trainer.metrics_manager:
+        report = trainer.metrics_manager.generate_comprehensive_report()
+        logger.info("\nComprehensive Evaluation Report:")
+        for line in report.split('\n'):
+            logger.info(line)
+        
+        # Save report to file
+        report_path = monitoring_dir / 'evaluation_report.txt'
+        with open(report_path, 'w') as f:
+            f.write(report)
+        logger.info(f"\nDetailed evaluation report saved to: {report_path}")
+    
+    # Log basic results
+    logger.info(f"\nSummary Results:")
     logger.info(f"Loss: {test_loss:.4f}")
     logger.info(f"Accuracy: {test_accuracy:.2f}%")
     logger.info(f"F1-Score: {test_f1:.4f}")
@@ -519,6 +533,7 @@ def main():
     args = parser.parse_args()
     
     # Initialize logging only once at the start
+    logging.basicConfig(level=logging.INFO)  # Add basic logging configuration
     Logger.setup()
     logger = Logger.get_logger('Main', console_output=True)
     
