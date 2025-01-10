@@ -1,64 +1,72 @@
 # PyTorch Training Framework
 
-A robust deep learning framework optimized for automated model architecture selection and hyperparameter tuning.
+A robust deep learning framework with advanced model architecture selection, hyperparameter tuning, and comprehensive performance analysis.
 
 ## Key Features
 
-### Advanced Architecture Support
+### Model Architectures
 - **ResNet MLP**
   - Residual connections for deep networks
   - Configurable batch normalization
-  - Fixed-width or expanding layers
+  - Adaptive layer sizing
   - Gradient-friendly skip connections
 
 - **Complex MLP**
-  - Automatic width tapering
+  - Dynamic width adaptation
   - Progressive layer size reduction
-  - Dynamic dropout rates
-  - Adaptive regularization
+  - Optimized dropout rates
+  - Intelligent regularization
 
-### Training Optimizations
+### Advanced Training Features
+- Early stopping with configurable patience
 - Learning rate scheduling with warmup
-- Gradient clipping (max norm: 1.0)
-- Early stopping with patience
-- Dynamic pruning of poor trials
-- Multivariate hyperparameter sampling
-- Trial history tracking
-- Performance-based early termination
+- Gradient clipping and normalization
+- Cross-validation with stability analysis
+- Performance-based pruning
+- Data leakage detection
 
-### Hyperparameter Tuning
-- Optuna-based optimization
-- TPE sampler with:
-  - Multivariate parameter relationships
-  - Automated pruning
-  - Cross-trial learning
-  - Performance tracking
-  - Resource optimization
+### Comprehensive Metrics Analysis
+- **Performance Metrics**
+  - Accuracy, Precision, Recall, F1-Score
+  - ROC-AUC and PR-AUC curves
+  - Cohen's Kappa coefficient
+  - Per-class performance analysis
 
-### Monitoring & Validation
-- Real-time metrics tracking
-- Unique learning curve plots
-- Trial efficiency statistics
-- Detailed architecture logging
-- Cross-validation support
+- **Statistical Analysis**
+  - Chi-square independence tests
+  - McNemar's test for model comparison
+  - Cross-validation stability metrics
+  - Confidence intervals for all metrics
 
-## Installation
+- **Visualization**
+  - Normalized confusion matrices
+  - Learning curve plots
+  - Per-class performance plots
+  - Cross-validation analysis plots
 
+### Hyperparameter Optimization
+- Optuna integration with TPE sampler
+- Multi-objective optimization
+- Cross-trial learning
+- Early pruning of poor trials
+- Resource-aware scheduling
+
+## Quick Start
+
+1. Installation:
 ```bash
-git clone https://github.com/yourusername/pytorch-training-framework.git
+git clone https://github.com/tmnestor/pytorch-training-framework.git
 cd pytorch-training-framework
 pip install -r requirements.txt
 ```
 
-## Quick Start
-
-1. Create a configuration file (`config.yaml`):
+2. Create configuration (config.yaml):
 ```yaml
 model:
   architecture_yaml: "models/architectures/resnet_mlp.yaml"
   save_path: "checkpoints/model.pt"
-  input_size: 784
-  num_classes: 10
+  input_size: 7
+  num_classes: 5
 
 training:
   epochs: 100
@@ -67,31 +75,17 @@ training:
     name: "Adam"
     params:
       lr: 0.001
-      weight_decay: 0.0001
-  metric: "accuracy"
-  loss:
-    name: "CrossEntropyLoss"
-  early_stopping:
-    patience: 10
-    min_delta: 0.001
-
-tuning:
-  n_trials: 50
-  pruning:
-    warm_up_epochs: 5
-    min_trials_complete: 10
-
-data:
-  train_path: "data/train.csv"
-  val_path: "data/val.csv"
-  target_column: "label"
+  metric: "f1"  # or "accuracy"
   
-dataloader:
-  num_workers: "auto"
-  pin_memory: true
+monitoring:
+  log_dir: "logs"
+  enabled: true
+  metrics:
+    save_interval: 1
+    plot_interval: 5
 ```
 
-2. Run training:
+3. Run training:
 ```bash
 python main.py --mode train --config config.yaml
 ```
@@ -103,91 +97,110 @@ python main.py --mode train --config config.yaml
 python main.py --mode train --config config.yaml [--force-retrain]
 ```
 
-### Inference
+### Inference with Analysis
 ```bash
 python main.py --mode infer --config config.yaml
 ```
+- Generates comprehensive performance report
+- Saves detailed metrics and visualizations
+- Performs statistical significance testing
 
 ### Online Learning
 ```bash
 python main.py --mode online --config config.yaml
 ```
 
-## Architecture Configuration
+## Performance Reports
 
-### ResNet MLP Example
+The framework generates detailed performance reports including:
+
+1. Overall Metrics
+   - Accuracy, Precision, Recall, F1-Score
+   - Confidence intervals and statistical tests
+
+2. Per-Class Analysis
+   - Individual class performance metrics
+   - Class distribution analysis
+   - Error analysis
+
+3. Statistical Tests
+   - Chi-square test results
+   - McNemar's test
+   - Cross-validation stability
+
+4. Visualizations
+   - Confusion matrices
+   - ROC and PR curves
+   - Learning curves
+   - Cross-validation plots
+
+## Configuration Guide
+
+### Model Architecture
 ```yaml
-architecture: resnet_mlp
-input_size: 784
+architecture: resnet_mlp  # or complex_mlp
+input_size: 7
 hidden_size: 256
-num_classes: 10
+num_classes: 5
 batch_norm: true
 activation: "relu"
 n_layers: 3
 ```
 
-### Complex MLP Example
+### Training Settings
 ```yaml
-architecture: complex_mlp
-input_size: 784
-hidden_size: 512
-num_classes: 10
-dropout_rate: 0.3
-activation: "gelu"
-n_layers: 4
-layer_shrinkage: 0.5
+training:
+  epochs: 100
+  batch_size: 32
+  early_stopping:
+    patience: 10
+    min_delta: 0.001
+  cross_validation:
+    n_splits: 5
+    max_epochs: 20
 ```
 
-## Performance Features
-
-### Auto-Optimization
-- Learning rate scheduling
-- Batch size optimization
-- Layer width adaptation
-- Dropout rate tuning
-- Early stopping thresholds
-- Pruning criteria
-
-### Hardware Utilization
-- CPU thread optimization
-- Memory usage monitoring
-- Batch size auto-scaling
-- Worker count adaptation
-
-### Monitoring
-- Real-time metrics
-- Resource utilization
-- Training progression
-- Model comparisons
+### Monitoring Configuration
+```yaml
+monitoring:
+  enabled: true
+  log_dir: "logs"
+  metrics:
+    save_interval: 1
+    plot_interval: 5
+  performance:
+    track_time: true
+    track_memory: true
+```
 
 ## Project Structure
 ```
 pytorch-training-framework/
-├── main.py                # Entry point
+├── main.py
 ├── trainer/
-│   ├── base_trainer.py    # Core training logic
+│   ├── base_trainer.py
 │   ├── hyperparameter_tuner.py
-│   ├── online_trainer.py  # Online learning
-│   └── cpu_optimizer.py
+│   └── online_trainer.py
 ├── models/
 │   ├── architectures/
 │   │   ├── base.py
 │   │   ├── resnet_mlp.py
-│   │   ├── complex_mlp.py
-│   │   └── registry.py
+│   │   └── complex_mlp.py
 │   └── model_loader.py
-└── utils/
-    ├── config.py
-    ├── data.py
-    └── logging.py
+├── utils/
+│   ├── metrics_manager.py
+│   ├── performance_monitor.py
+│   ├── config.py
+│   └── logger.py
+└── README.md
 ```
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
+2. Create a feature branch (`git checkout -b feature/new-feature`)
+3. Commit changes (`git commit -m 'Add new feature'`)
+4. Push to branch (`git push origin feature/new-feature`)
 5. Open a Pull Request
 
 ## License
@@ -195,8 +208,6 @@ pytorch-training-framework/
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Citation
-
-If you use this framework in your research, please cite:
 
 ```bibtex
 @software{pytorch_training_framework,
@@ -206,3 +217,4 @@ If you use this framework in your research, please cite:
   publisher = {GitHub},
   url = {https://github.com/tmnestor/pytorch-training-framework}
 }
+```
