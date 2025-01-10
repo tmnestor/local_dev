@@ -82,6 +82,10 @@ class OnlineTrainer:
         
         return avg_loss, accuracy
 
+    def update_model(self, new_data_loader, val_loader, epochs):
+        """Remove checkpoint_dir parameter and related code"""
+        # ...existing code without checkpoint saving...
+
 if __name__ == "__main__":
     # Example usage
     model = nn.Sequential(

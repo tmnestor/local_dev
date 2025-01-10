@@ -21,8 +21,8 @@ ipython_config.py
 logs/*
 !logs/.gitkeep
 
-checkpoints/*
-!checkpoints/.gitkeep
+monitoring/*
+!monitoring/.gitkeep
 
 figures/*
 !figures/.gitkeep

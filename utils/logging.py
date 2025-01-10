@@ -1,34 +1,23 @@
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
 
 def setup_logger(
     name: str = "main",
     log_level: int = logging.INFO,
     log_file: str = None,
-    console_output: bool = True
+    console_output: bool = True,
+    log_format: str = '%(message)s'  # Changed default format to just show message
 ) -> logging.Logger:
-    """
-    Configure and return a logger with both file and console handlers.
-    
-    Args:
-        name: Name of the logger
-        log_level: Logging level (default: INFO)
-        log_file: Path to log file (optional)
-        console_output: Whether to output to console (default: True)
-    
-    Returns:
-        Configured logger instance
-    """
+    """Configure and return a logger with both file and console handlers."""
     logger = logging.getLogger(name)
     logger.setLevel(log_level)
     
+    # Remove any existing handlers
+    logger.handlers = []
+    
     # Create formatter
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
+    formatter = logging.Formatter(log_format)
     
     # Add file handler if log_file is specified
     if log_file:

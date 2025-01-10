@@ -1,5 +1,5 @@
 best_model:
-  activation: elu
+  activation: gelu
   architecture:
     activation: gelu
     architecture: resnet_mlp
@@ -27,24 +27,24 @@ best_model:
       type: linear
     n_layers: 3
     num_classes: 5
-  best_metric_name: accuracy
-  best_metric_value: 76.875
+  best_metric_name: f1
+  best_metric_value: 0.2815780366814217
   dropout_rate: 0.0
   hidden_layers:
-  - 384
-  - 384
-  - 384
-  - 384
-  hidden_size: 384
+  - 288
+  - 288
+  - 288
+  hidden_size: 288
   hyperparameters: null
-  learning_rate: 0.005005547881337766
+  learning_rate: 5.658847083849212e-05
   metric_name: null
   metric_value: null
-  n_layers: 4
+  n_layers: 3
   use_batch_norm: true
-  weight_decay: 0.000249950756984693
+  weight_decay: 0.0007149512569853429
 data:
   target_column: target
+  test_path: data/test.csv
   train_path: data/train.csv
   val_path: data/val.csv
 dataloader:
@@ -56,17 +56,36 @@ dataloader:
 device: cpu
 early_stopping:
   min_delta: 0.001
-  patience: 10
+  patience: 5
 logging:
   directory: logs
-  filename: '{name}.log'
-  format: '%(message)s'
+  filename: training.log
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  level: INFO
 model:
   architecture_yaml: models/configs/resnet_mlp.yaml
   input_size: 7
   num_classes: 5
   save_path: models/best_model.pt
   type: resnet_mlp
+monitoring:
+  checkpoints:
+    filename: model_checkpoint.pt
+    save_best: true
+    save_interval: 10
+  enabled: true
+  log_dir: monitoring
+  log_file: performance.log
+  memory:
+    include_gpu: true
+    track: true
+  metrics:
+    output_file: metrics.yaml
+    plot_interval: 5
+    save_interval: 10
+  performance:
+    track_throughput: true
+    track_time: true
 optimization:
   memory:
     gradient_accumulation_steps: 16
@@ -93,6 +112,9 @@ training:
     enable_mkldnn: true
     num_threads: auto
     use_bfloat16: false
+  cross_validation:
+    max_epochs: 20
+    n_splits: 7
   device: cpu
   epochs: 100
   loss:
@@ -100,7 +122,7 @@ training:
       enabled: false
       factor: 0.1
     name: CrossEntropyLoss
-  metric: accuracy
+  metric: f1
   optimizer:
     name: Adam
     params:
@@ -112,7 +134,7 @@ training:
       weight_decay: 0.0
   seed: 42
 tuning:
-  n_trials: 200
+  n_trials: 20
   pruning:
-    min_trials_complete: 10
-    warm_up_epochs: 5
+    min_trials_complete: 5
+    warm_up_epochs: 2

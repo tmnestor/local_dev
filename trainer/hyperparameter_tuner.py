@@ -3,75 +3,88 @@ import time
 import copy
 import logging
 import yaml
+import numpy as np
 import torch
 import torch.nn as nn
 import optuna
+import warnings
+import datetime  # Add this import
+from optuna._experimental import ExperimentalWarning
 from typing import Dict, Any, Tuple, List
+from pathlib import Path
+from utils.metrics_manager import MetricsManager
 
 from .base_trainer import PyTorchTrainer
-from utils.config import setup_logger
+from utils.logging import setup_logger  # Fix: Change from utils.config to utils.logging
 from models.model_loader import load_model_from_yaml
 
 def restore_best_model(config):
     """Restore best model with architecture description."""
+    logger = setup_logger('ModelRestoration')  # Use consistent setup_logger
+    
     try:
         if os.path.exists(config['model']['save_path']):
+            logger.info(f"Loading checkpoint from {config['model']['save_path']}")
+            
             checkpoint = torch.load(
-                config['model']['save_path'], 
-                weights_only=True,
-                map_location='cpu'
+                config['model']['save_path'],
+                map_location='cpu',
+                weights_only=True
             )
             
-            # Create model from saved architecture
-            with open('temp_arch.yaml', 'w') as f:
-                yaml.dump(checkpoint['hyperparameters']['architecture'], f)
+            # Load and validate architecture
+            arch_config = checkpoint.get('hyperparameters', {}).get('architecture', None)
+            if not arch_config:
+                with open(config['model']['architecture_yaml'], 'r') as f:
+                    arch_config = yaml.safe_load(f)
             
-            model = load_model_from_yaml('temp_arch.yaml')
-            os.remove('temp_arch.yaml')
-            
-            optimizer = getattr(torch.optim, config['training']['optimizer']['name'])(
-                model.parameters(),
-                lr=checkpoint['hyperparameters']['lr'],
-                weight_decay=checkpoint['hyperparameters'].get('weight_decay', 0.0)
-            )
-            
+            # Create and validate model
+            model = load_model_from_yaml(config['model']['architecture_yaml'])
+            model.train(False)
             model.load_state_dict(checkpoint['model_state_dict'])
             
-            # Determine architecture type from structure
-            arch_type = checkpoint.get('architecture_type', "ResNet MLP" if any(
-                layer.get('residual', False) 
-                for layer in checkpoint['hyperparameters']['architecture']['layers']
-                if isinstance(layer, dict)
-            ) else "Complex MLP")
+            # Create optimizer
+            optimizer = getattr(torch.optim, config['training']['optimizer']['name'])(
+                model.parameters(),
+                **config['training']['optimizer']['params']
+            )
             
-            # Add architecture description
-            arch_desc = (f"{arch_type} with "
-                       f"{checkpoint['hyperparameters'].get('n_layers', 3)} layers, "
-                       f"hidden size {checkpoint['hyperparameters'].get('hidden_size', 256)}")
+            # Get architecture type
+            arch_type = "ResNet MLP" if any(
+                isinstance(layer, dict) and layer.get('residual', False)
+                for layer in arch_config.get('layers', [])
+            ) else "Complex MLP"
             
             return {
                 'model': model,
                 'optimizer': optimizer,
                 'metric_name': config['training']['metric'],
-                'metric_value': checkpoint['metric_value'],
-                'hyperparameters': checkpoint['hyperparameters'],
-                'architecture_description': arch_desc,
-                'architecture_type': arch_type
+                'metric_value': checkpoint.get('metric_value', 0.0),
+                'hyperparameters': checkpoint.get('hyperparameters', {}),
+                'architecture_type': arch_type,
+                'architecture_description': f"{arch_type} with {len([l for l in arch_config['layers'] if l.get('type') == 'linear'])} layers"
             }
+            
     except Exception as e:
-        logging.warning(f"Failed to load checkpoint: {e}. Using default model.")
-        
-    # Initialize new model with base architecture
+        logger.error(f"Failed to restore model: {str(e)}")
+        return _create_default_model(config)
+
+def _create_default_model(config):
+    """Create a new model with default configuration."""
+    logger = logging.getLogger('ModelRestoration')
+    
     with open(config['model']['architecture_yaml'], 'r') as f:
         architecture = yaml.safe_load(f)
     
     model = load_model_from_yaml(config['model']['architecture_yaml'])
+    model.train(False)
     
     optimizer = getattr(torch.optim, config['training']['optimizer']['name'])(
         model.parameters(),
-        lr=config['training']['optimizer']['params']['lr'],
-        weight_decay=config['training']['optimizer']['params'].get('weight_decay', 0.0)
+        **config['training']['optimizer']['params']
     )
+    
+    logger.info("Created new model with default configuration")
     
     return {
         'model': model,
@@ -82,7 +95,10 @@ def restore_best_model(config):
             'architecture': architecture,
             'lr': config['training']['optimizer']['params']['lr'],
             'weight_decay': config['training']['optimizer']['params'].get('weight_decay', 0.0)
-        }
+        },
+        'architecture_type': 'Default',
+        'architecture_description': 'Default Architecture',
+        'needs_validation': True
     }
 
 def save_best_params_to_config(config_path, best_trial, best_params):
@@ -140,7 +156,19 @@ class HyperparameterTuner:
         self.best_trial_value = float('-inf')
         self.best_params = None
         self.initial_model = initial_model
-        os.makedirs(os.path.dirname(config['model']['save_path']), exist_ok=True)
+        
+        # Setup logger with simplified format
+        log_config = config.get('logging', {})
+        self.logger = logging.getLogger('HyperTuner')
+        self.logger.setLevel(logging.INFO)
+        
+        # Create handler with simplified format
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter('%(asctime)s %(message)s', 
+                            datefmt='%Y-%m-%d %H:%M:%S')
+        )
+        self.logger.addHandler(handler)
         
         # Load both architectures from models directory
         models_dir = os.path.dirname(config['model']['architecture_yaml'])
@@ -158,8 +186,7 @@ class HyperparameterTuner:
         log_config = config.get('logging', {})
         self.logger = setup_logger(
             name='HyperTuner',
-            log_dir=log_config.get('directory', 'logs'),
-            filename_template=log_config.get('filename', '{name}.log'),
+            log_file=str(Path(log_config.get('directory', 'logs')) / f"{log_config.get('filename', 'hypertuner.log')}"),
             log_format=log_config.get('format', '%(message)s')
         )
         
@@ -172,7 +199,36 @@ class HyperparameterTuner:
         
         # Cache for storing trial results
         self.trial_history = {}
-    
+        
+        # Create tuning-specific config with properly structured monitoring config
+        self.tuning_config = copy.deepcopy(config)
+        self.tuning_config['monitoring'] = {
+            'enabled': False,
+            'metrics': {
+                'save_interval': 1,
+                'plot_interval': 1
+            },
+            'memory': {
+                'track': False
+            },
+            'performance': {
+                'track_time': False,
+                'track_throughput': False
+            }
+        }
+        
+        # Store model configuration
+        self.input_size = config['model']['input_size']
+        self.num_classes = config['model']['num_classes']
+        self.device = config.get('device', 'cpu')
+        
+        # Setup proper model config
+        self.model_config = {
+            'input_size': self.input_size,
+            'num_classes': self.num_classes,
+            'device': self.device
+        }
+
     def create_model_and_optimizer(self, trial):
         """Create model and optimizer based on trial parameters."""
         # First suggest architecture type as it determines other parameters
@@ -206,39 +262,42 @@ class HyperparameterTuner:
             dropout_rate = params['dropout_rate']
             use_batch_norm = False
 
+        # Create temporary architecture config with required fields
+        architecture = {
+            'architecture': arch_type,
+            'input_size': self.input_size,  # Use stored input_size
+            'hidden_size': params['hidden_size'],
+            'num_classes': self.num_classes,  # Use stored num_classes
+            'activation': params['activation'],
+            'batch_norm': use_batch_norm,
+            'dropout_rate': dropout_rate,
+            'n_layers': params['n_layers']
+        }
+        
         # Create layers based on architecture type
         layers = (self._create_resnet_layers(params['n_layers'], params['hidden_size'], params['activation'])
                  if arch_type == 'resnet_mlp'
                  else self._create_complex_mlp_layers(params['n_layers'], params['hidden_size'],
                                                     dropout_rate, params['activation']))
-
-        # Create temporary architecture config
-        architecture = {
-            'architecture': arch_type,  # Now using correct architecture name
-            'input_size': self.config['model']['input_size'],
-            'hidden_size': params['hidden_size'],
-            'num_classes': self.config['model']['num_classes'],
-            'activation': params['activation'],
-            'batch_norm': use_batch_norm,
-            'dropout_rate': dropout_rate,
-            'n_layers': params['n_layers'],
-            'layers': layers
-        }
+        
+        # Add layers to architecture
+        architecture['layers'] = layers
         
         # Save temporary YAML and create model
         trial_yaml = f'trial_{trial.number}.yaml'
-        with open(trial_yaml, 'w') as f:
-            yaml.dump(architecture, f)
-        
         try:
+            with open(trial_yaml, 'w') as f:
+                yaml.dump(architecture, f)
+            
+            # Create model with proper config
             model = load_model_from_yaml(trial_yaml)
+            model = model.to(self.device)
+            
         finally:
             if os.path.exists(trial_yaml):
                 os.remove(trial_yaml)
         
-        # Common hyperparameters
-        weight_decay = trial.suggest_float('weight_decay', 1e-6, 1e-3, log=True)
-        
+        # Create optimizer
         optimizer = getattr(torch.optim, self.config['training']['optimizer']['name'])(
             model.parameters(),
             lr=params['lr'],
@@ -254,7 +313,9 @@ class HyperparameterTuner:
             'hidden_size': params['hidden_size'],
             'dropout_rate': dropout_rate,
             'activation': params['activation'],
-            'use_batch_norm': use_batch_norm
+            'use_batch_norm': use_batch_norm,
+            'input_size': self.input_size,  # Add input_size
+            'num_classes': self.num_classes  # Add num_classes
         }
 
     def _create_resnet_layers(self, n_layers: int, hidden_size: int, activation: str) -> List[Dict]:
@@ -360,9 +421,8 @@ class HyperparameterTuner:
             'architecture_type': arch_type,
             'architecture': trial_params['architecture']
         }
+        # Save without logging - logging will be handled by trainer
         torch.save(checkpoint, self.config['model']['save_path'])
-        self.logger.info(f"Saved new best model ({arch_type}) "
-                      f"with metric value: {metric_value:.4f}")
 
     def objective(self, trial, train_loader, val_loader):
         """Objective function for Optuna optimization."""
@@ -374,14 +434,28 @@ class HyperparameterTuner:
         # Create criterion
         criterion = getattr(nn, self.config['training']['loss']['name'])()
         
-        # Early performance check after first epoch
+        # Create proper configuration for trainer
+        trainer_config = {
+            'model': {
+                'num_classes': self.config['model']['num_classes'],
+                'input_size': self.config['model']['input_size'],
+                'architecture': trial_params['architecture']
+            },
+            'training': self.config['training'],
+            'device': self.config['device']
+        }
+        
+        # Create trainer in tuning mode with proper configuration
         trainer = PyTorchTrainer(
             model, criterion, optimizer,
             device=self.config['device'],
-            verbose=False  # Reduce logging noise
+            verbose=False,
+            config=trainer_config,
+            tuning_mode=True,
+            metrics_tuning_mode=True
         )
         
-        # Quick validation after first epoch
+        # Early performance check after first epoch
         trainer.train_epoch(train_loader)
         _, accuracy, f1 = trainer.evaluate(val_loader)
         metric = f1 if self.config['training']['metric'] == 'f1' else accuracy
@@ -454,7 +528,13 @@ class HyperparameterTuner:
             'params': trial_params,
             'first_epoch_metric': trial.user_attrs['first_epoch_metric'],
             'duration': time.time() - start_time,
-            'completed_epochs': trial.user_attrs['completed_epochs']
+            'completed_epochs': trial.user_attrs['completed_epochs'],
+            'cv_stats': {
+                'std': trial.user_attrs.get('cv_std', 0.0),
+                'variance': trial.user_attrs.get('cv_variance', 0.0),
+                'confidence_interval': trial.user_attrs.get('cv_confidence_interval', [0.0, 0.0]),
+                'stability_score': trial.user_attrs.get('cv_stability', 0.0)
+            }
         }
         
         self.pruning_stats['completed_trials'] += 1
@@ -467,11 +547,17 @@ class HyperparameterTuner:
             self.logger.info(f"Early Stopped: {self.pruning_stats['early_stopped_trials']}")
             avg_duration = sum(t['duration'] for t in self.trial_history.values()) / len(self.trial_history)
             self.logger.info(f"Average trial duration: {avg_duration:.2f}s")
+            self.logger.info("\nCross Validation Stats:")
+            self.logger.info(f"Avg CV Std: {np.mean([t['cv_stats']['std'] for t in self.trial_history.values()]):.4f}")
+            self.logger.info(f"Most Stable Trial: {min(self.trial_history.items(), key=lambda x: x[1]['cv_stats']['std'])[0]}")
         
         return best_metric
 
     def tune(self, train_loader, val_loader):
         """Run hyperparameter tuning with Optuna."""
+        # Suppress experimental warning
+        warnings.filterwarnings('ignore', category=ExperimentalWarning)
+        
         # Use multivariate TPE sampler with proper parameter grouping
         sampler = optuna.samplers.TPESampler(
             multivariate=True,
@@ -499,17 +585,19 @@ class HyperparameterTuner:
             if hasattr(trial, 'user_attrs'):
                 arch_type = trial.user_attrs.get('architecture_type', 'Unknown')
                 epochs = trial.user_attrs.get('completed_epochs', '?')
+                first_epoch_metric = trial.user_attrs.get('first_epoch_metric', 0.0)
                 
                 if trial.state == optuna.trial.TrialState.PRUNED:
-                    return  # Don't log pruned trials here, already logged in objective
+                    return  # Don't log pruned trials here
                 
-                msg = f"[{arch_type}] Trial {trial.number:02d} completed after {epochs} epochs "
-                msg += f"with value: {trial.value:.4f}"
-                self.logger.info(msg)
+                msg = f"Trial {trial.number:02d} [{arch_type}] completed after {epochs} epochs"
+                msg += f" (First epoch: {first_epoch_metric:.4f}, Final: {trial.value:.4f})"
                 
                 if study.best_trial.number == trial.number:
-                    self.logger.info("*** New best trial! ***")
-                self.logger.info("="*60)
+                    msg += " [NEW BEST]"
+                
+                self.logger.info(msg)
+                print("=" * 80)  # Print separator directly without timestamp
         
         study.optimize(
             lambda trial: self.objective(trial, train_loader, val_loader),
