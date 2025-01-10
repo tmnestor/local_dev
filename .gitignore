@@ -3,12 +3,13 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-*.pt
-*.safetensors
-*.png
-*.json
-*.log
-*.ipynb
+**/*.pt
+**/*.safetensors
+**/*.png
+**/*.json
+**/*.log
+**/*.ipynb
+**/*.pyc
 
 # Jupyter Notebook checkpoints anywhere in the codebase
 **/.ipynb_checkpoints
